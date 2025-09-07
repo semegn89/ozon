@@ -152,6 +152,24 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(get_text('access_denied', lang))
         return
     
+    # Check if admin is in the middle of creating something
+    if user.id in user_states:
+        state = user_states[user.id]
+        if state.state.startswith('ADD_INSTR_'):
+            # Admin is in instruction creation flow
+            buttons = [
+                [InlineKeyboardButton("🔄 Продолжить мастер", callback_data='continue_master')],
+                [InlineKeyboardButton("❌ Выйти из мастера", callback_data='exit_master')]
+            ]
+            keyboard = InlineKeyboardMarkup(buttons)
+            
+            await update.message.reply_text(
+                "⚠️ Вы находитесь в процессе создания инструкции.\n\n"
+                "Что хотите сделать?",
+                reply_markup=keyboard
+            )
+        return
+    
     await update.message.reply_text(
         get_text('admin_menu', lang),
         reply_markup=admin_menu_keyboard(lang)
@@ -181,6 +199,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Models
         elif data == 'choose_model':
             await handle_choose_model(query, lang)
+        elif data == 'models_list':
+            await handle_models_list(query, lang)
         elif data.startswith('models_page_'):
             page = int(data.split('_')[2])
             await handle_models_page(query, page, lang)
@@ -278,6 +298,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_confirm_create_instruction(query, lang)
         elif data == 'save_instruction':
             await handle_save_instruction(query, lang)
+        elif data == 'continue_master':
+            await handle_continue_master(query, lang)
+        elif data == 'exit_master':
+            await handle_exit_master(query, lang)
         
         # Admin - Tickets
         elif data == 'admin_open_tickets':
@@ -362,6 +386,10 @@ async def handle_choose_model(query, lang: str):
     finally:
         db.close()
 
+async def handle_models_list(query, lang: str):
+    """Handle models list button - same as choose_model but for consistency"""
+    await handle_choose_model(query, lang)
+
 async def handle_models_page(query, page: int, lang: str):
     """Handle models pagination"""
     db = get_session()
@@ -408,8 +436,27 @@ async def handle_model_selected(query, model_id: int, lang: str):
         description = model.description or ""
         tags = f"\n{get_text('model_tags', lang, tags=model.tags)}" if model.tags else ""
         
+        # Get instructions for this model
+        instructions_service = InstructionsService(db)
+        instructions = instructions_service.get_instructions_by_model_id(model_id)
+        
+        # Build instructions text
+        instructions_text = ""
+        if instructions:
+            instructions_text = "\n\n📄 Доступные инструкции:\n"
+            for i, instruction in enumerate(instructions, 1):
+                if instruction.type == 'file':
+                    icon = "📎"
+                elif instruction.type == 'link':
+                    icon = "🔗"
+                else:
+                    icon = "📄"
+                instructions_text += f"{i}. {icon} {instruction.title}\n"
+        else:
+            instructions_text = "\n\n📄 Инструкции: Пока не добавлены"
+        
         await query.edit_message_text(
-            get_text('model_selected', lang, name=model.name, description=description) + tags,
+            get_text('model_selected', lang, name=model.name, description=description) + tags + instructions_text,
             reply_markup=model_options_keyboard(model_id, lang),
             parse_mode='HTML'
         )
@@ -1496,7 +1543,7 @@ async def handle_admin_add_instruction_url(update: Update, context: ContextTypes
     if not url.startswith(('http://', 'https://')):
         await update.message.reply_text(
             "Пожалуйста, отправьте корректный URL (начинающийся с http:// или https://).",
-            reply_markup=cancel_keyboard(lang)
+            reply_markup=back_cancel_keyboard(lang)
         )
         return
     
@@ -1772,6 +1819,131 @@ async def handle_save_instruction(query, lang: str):
             del user_states[user_id]
     finally:
         db.close()
+
+async def handle_continue_master(query, lang: str):
+    """Handle continue master button"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    user_id = query.from_user.id
+    if user_id not in user_states:
+        await query.edit_message_text("Сессия истекла. Начните заново.", reply_markup=admin_menu_keyboard(lang))
+        return
+    
+    state = user_states[user_id]
+    current_state = state.state
+    
+    logger.info(f"Admin {user_id} continuing master from state: {current_state}")
+    
+    # Show appropriate message based on current state
+    if current_state == 'ADD_INSTR_TITLE':
+        await query.edit_message_text(
+            get_text('instruction_title_prompt', lang),
+            reply_markup=cancel_keyboard(lang)
+        )
+    elif current_state == 'ADD_INSTR_TYPE':
+        await query.edit_message_text(
+            get_text('instruction_type_prompt', lang),
+            reply_markup=instruction_type_keyboard(lang)
+        )
+    elif current_state == 'ADD_INSTR_FILE_WAIT':
+        await query.edit_message_text(
+            "📎 Пришлите файл (PDF, DOC, JPG, ZIP, MP4, AVI и т.д.)\n\n"
+            "Поддерживаемые форматы:\n"
+            "• PDF, DOC, DOCX\n"
+            "• JPG, PNG, GIF\n"
+            "• ZIP, RAR\n"
+            "• MP4, AVI, MOV (для видео)\n\n"
+            "Максимальный размер: 20 MB\n\n"
+            "Что дальше: После загрузки файла → описание → привязка к моделям",
+            reply_markup=back_cancel_keyboard(lang)
+        )
+    elif current_state == 'ADD_INSTR_URL_WAIT':
+        await query.edit_message_text(
+            "🔗 Введите URL ссылки:\n\n"
+            "Пример: https://example.com/instruction.pdf\n\n"
+            "Что дальше: После ввода URL → описание → привязка к моделям",
+            reply_markup=back_cancel_keyboard(lang)
+        )
+    elif current_state == 'ADD_INSTR_DESC':
+        await query.edit_message_text(
+            get_text('instruction_description_prompt', lang) + "\n\n"
+            "Что дальше: После описания → выбор моделей для привязки",
+            reply_markup=back_cancel_keyboard(lang)
+        )
+    elif current_state == 'ADD_INSTR_BIND':
+        # Get models and show selection keyboard
+        db = get_session()
+        try:
+            models_service = ModelsService(db)
+            models = models_service.get_models(page=0, limit=100)
+            
+            await query.edit_message_text(
+                "🔗 Выберите модели для привязки инструкции:\n\n"
+                "Что дальше: Выберите модели → подтверждение → сохранение",
+                reply_markup=new_instruction_models_keyboard(models, state.data.get('selected_models', []), 0, lang)
+            )
+        finally:
+            db.close()
+    elif current_state == 'ADD_INSTR_CONFIRM':
+        # Show confirmation again
+        selected_models = state.data.get('selected_models', [])
+        db = get_session()
+        try:
+            models_service = ModelsService(db)
+            models = models_service.get_models(page=0, limit=100)
+            selected_model_names = [m.name for m in models if m.id in selected_models]
+            
+            confirmation_text = f"📋 Подтверждение создания инструкции:\n\n"
+            confirmation_text += f"📝 Название: {state.data['title']}\n"
+            confirmation_text += f"📄 Тип: {state.data['type']}\n"
+            if state.data.get('description'):
+                confirmation_text += f"📝 Описание: {state.data['description']}\n"
+            if state.data.get('tg_file_id'):
+                confirmation_text += f"📎 Файл: Загружен\n"
+            if state.data.get('url'):
+                confirmation_text += f"🔗 URL: {state.data['url']}\n"
+            confirmation_text += f"🔗 Модели: {', '.join(selected_model_names) if selected_model_names else 'Не выбраны'}\n\n"
+            confirmation_text += "💾 Сохранить инструкцию?"
+            
+            buttons = [
+                [InlineKeyboardButton("💾 Сохранить", callback_data='save_instruction')],
+                [InlineKeyboardButton("⬅️ Назад", callback_data='back_step')],
+                [InlineKeyboardButton("❌ Отмена", callback_data='cancel')]
+            ]
+            confirmation_keyboard = InlineKeyboardMarkup(buttons)
+            
+            await query.edit_message_text(confirmation_text, reply_markup=confirmation_keyboard)
+        finally:
+            db.close()
+    else:
+        # Unknown state, go to admin menu
+        del user_states[user_id]
+        await query.edit_message_text(
+            get_text('admin_menu', lang),
+            reply_markup=admin_menu_keyboard(lang)
+        )
+
+async def handle_exit_master(query, lang: str):
+    """Handle exit master button"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    user_id = query.from_user.id
+    
+    # Clear user state
+    if user_id in user_states:
+        del user_states[user_id]
+    
+    logger.info(f"Admin {user_id} exited master")
+    
+    await query.edit_message_text(
+        "✅ Мастер создания инструкции отменен.\n\n"
+        "Все временные данные удалены.",
+        reply_markup=admin_menu_keyboard(lang)
+    )
 
 # ==================== INSTRUCTION MANAGEMENT HANDLERS ====================
 

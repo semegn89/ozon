@@ -127,3 +127,10 @@ class InstructionsService:
         return self.db.query(Instruction).filter(
             Instruction.type == instruction_type
         ).offset(offset).limit(limit).all()
+    
+    def get_instructions_by_model_id(self, model_id: int) -> List[Instruction]:
+        """Get all instructions for a specific model"""
+        model = self.db.query(Model).filter(Model.id == model_id).first()
+        if not model:
+            return []
+        return model.instructions
