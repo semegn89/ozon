@@ -1,0 +1,17 @@
+[Unit]
+Description=Ozon Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=grigorijs
+WorkingDirectory=/Users/grigorijs/ozon
+Environment=PATH=/Users/grigorijs/ozon/venv/bin
+ExecStart=/Users/grigorijs/ozon/venv/bin/python /Users/grigorijs/ozon/bot_new.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
