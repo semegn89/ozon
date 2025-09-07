@@ -1,0 +1,24 @@
+name: ozon-telegram-bot
+services:
+- name: bot
+  source_dir: /
+  github:
+    repo: semegn89/ozon
+    branch: main
+  run_command: python bot_new.py
+  environment_slug: python
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  envs:
+  - key: BOT_TOKEN
+    scope: RUN_TIME
+    type: SECRET
+  - key: ADMIN_CHAT_IDS
+    scope: RUN_TIME
+    type: SECRET
+  - key: DB_URL
+    scope: RUN_TIME
+    value: sqlite:///data.db
+  - key: MODE
+    scope: RUN_TIME
+    value: POLLING
