@@ -189,6 +189,14 @@ def cancel_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     buttons = [[InlineKeyboardButton(get_text('cancel', lang), callback_data='cancel')]]
     return InlineKeyboardMarkup(buttons)
 
+def back_cancel_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Back and cancel keyboard"""
+    buttons = [
+        [InlineKeyboardButton("⬅️ Назад", callback_data='back_step')],
+        [InlineKeyboardButton(get_text('cancel', lang), callback_data='cancel')]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
 def admin_instructions_list_keyboard(instructions: List[Instruction], lang: str = 'ru') -> InlineKeyboardMarkup:
     """Admin instructions list keyboard"""
     buttons = []

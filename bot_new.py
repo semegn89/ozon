@@ -284,6 +284,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             action = data.split('_', 1)[1]
             await handle_cancellation(query, action, lang)
         
+        # Back step
+        elif data == 'back_step':
+            await handle_back_step(query, lang)
+        
         # Cancel
         elif data == 'cancel':
             # Clear user state
@@ -757,7 +761,7 @@ async def handle_admin_add_instruction(query, lang: str):
         return
     
     user_id = query.from_user.id
-    user_states[user_id] = UserState('admin_add_instruction_title')
+    user_states[user_id] = UserState('ADD_INSTR_TITLE')
     
     logger.info(f"Admin {user_id} started adding instruction, state set to: admin_add_instruction_title")
     
@@ -876,6 +880,92 @@ async def handle_cancellation(query, action: str, lang: str):
         reply_markup=admin_menu_keyboard(lang)
     )
 
+async def handle_back_step(query, lang: str):
+    """Handle back step button"""
+    user_id = query.from_user.id
+    
+    if user_id not in user_states:
+        await query.edit_message_text(
+            "Нет предыдущего шага.",
+            reply_markup=admin_menu_keyboard(lang)
+        )
+        return
+    
+    state = user_states[user_id]
+    current_state = state.state
+    
+    logger.info(f"Admin {user_id} going back from state: {current_state}")
+    
+    # Handle back navigation for instruction creation flow
+    if current_state == 'ADD_INSTR_TYPE':
+        # Go back to title input
+        user_states[user_id] = UserState('ADD_INSTR_TITLE')
+        await query.edit_message_text(
+            get_text('instruction_title_prompt', lang),
+            reply_markup=cancel_keyboard(lang)
+        )
+    elif current_state == 'ADD_INSTR_FILE_WAIT':
+        # Go back to type selection
+        user_states[user_id] = UserState('ADD_INSTR_TYPE', {'title': state.data.get('title')})
+        await query.edit_message_text(
+            get_text('instruction_type_prompt', lang),
+            reply_markup=instruction_type_keyboard(lang)
+        )
+    elif current_state == 'ADD_INSTR_URL_WAIT':
+        # Go back to type selection
+        user_states[user_id] = UserState('ADD_INSTR_TYPE', {'title': state.data.get('title')})
+        await query.edit_message_text(
+            get_text('instruction_type_prompt', lang),
+            reply_markup=instruction_type_keyboard(lang)
+        )
+    elif current_state == 'ADD_INSTR_DESC':
+        # Go back to file/URL step based on type
+        if state.data.get('type') in ['pdf', 'video']:
+            user_states[user_id] = UserState('ADD_INSTR_FILE_WAIT', state.data)
+            await query.edit_message_text(
+                "📎 Пришлите файл (PDF, DOC, JPG, ZIP, MP4, AVI и т.д.)\n\n"
+                "Поддерживаемые форматы:\n"
+                "• PDF, DOC, DOCX\n"
+                "• JPG, PNG, GIF\n"
+                "• ZIP, RAR\n"
+                "• MP4, AVI, MOV (для видео)\n\n"
+                "Максимальный размер: 20 MB\n\n"
+                "Что дальше: После загрузки файла → описание → привязка к моделям",
+                reply_markup=back_cancel_keyboard(lang)
+            )
+        else:
+            user_states[user_id] = UserState('ADD_INSTR_URL_WAIT', state.data)
+            await query.edit_message_text(
+                "🔗 Введите URL ссылки:\n\n"
+                "Пример: https://example.com/instruction.pdf\n\n"
+                "Что дальше: После ввода URL → описание → привязка к моделям",
+                reply_markup=back_cancel_keyboard(lang)
+            )
+    elif current_state == 'ADD_INSTR_BIND':
+        # Go back to description
+        user_states[user_id] = UserState('ADD_INSTR_DESC', state.data)
+        await query.edit_message_text(
+            get_text('instruction_description_prompt', lang) + "\n\n"
+            "Что дальше: После описания → выбор моделей для привязки",
+            reply_markup=back_cancel_keyboard(lang)
+        )
+    elif current_state == 'ADD_INSTR_CONFIRM':
+        # Go back to model binding
+        user_states[user_id] = UserState('ADD_INSTR_BIND', state.data)
+        # This will be handled by the existing model binding logic
+        await query.edit_message_text(
+            "🔗 Выберите модели для привязки инструкции:\n\n"
+            "Что дальше: Выберите модели → подтверждение → сохранение",
+            reply_markup=back_cancel_keyboard(lang)
+        )
+    else:
+        # Unknown state, go to admin menu
+        del user_states[user_id]
+        await query.edit_message_text(
+            get_text('admin_menu', lang),
+            reply_markup=admin_menu_keyboard(lang)
+        )
+
 async def handle_instruction_type_selection(query, instruction_type: str, lang: str):
     """Handle instruction type selection"""
     if not is_admin(query.from_user.id):
@@ -915,8 +1005,8 @@ async def handle_instruction_type_selection(query, instruction_type: str, lang: 
     # Different flow based on type
     if instruction_type in ['pdf', 'video']:
         # For file types, wait for file upload first
-        user_states[user_id] = UserState('admin_add_instruction_file_wait', state.data)
-        logger.info(f"Admin {user_id} state updated to: admin_add_instruction_file_wait")
+        user_states[user_id] = UserState('ADD_INSTR_FILE_WAIT', state.data)
+        logger.info(f"Admin {user_id} state updated to: ADD_INSTR_FILE_WAIT")
         
         await query.edit_message_text(
             "📎 Пришлите файл (PDF, DOC, JPG, ZIP, MP4, AVI и т.д.)\n\n"
@@ -925,17 +1015,20 @@ async def handle_instruction_type_selection(query, instruction_type: str, lang: 
             "• JPG, PNG, GIF\n"
             "• ZIP, RAR\n"
             "• MP4, AVI, MOV (для видео)\n\n"
-            "Максимальный размер: 20 MB",
-            reply_markup=cancel_keyboard(lang)
+            "Максимальный размер: 20 MB\n\n"
+            "Что дальше: После загрузки файла → описание → привязка к моделям",
+            reply_markup=back_cancel_keyboard(lang)
         )
     else:
         # For link type, go directly to URL input
-        user_states[user_id] = UserState('admin_add_instruction_url', state.data)
-        logger.info(f"Admin {user_id} state updated to: admin_add_instruction_url")
+        user_states[user_id] = UserState('ADD_INSTR_URL_WAIT', state.data)
+        logger.info(f"Admin {user_id} state updated to: ADD_INSTR_URL_WAIT")
         
         await query.edit_message_text(
-            "🔗 Введите URL ссылки:",
-            reply_markup=cancel_keyboard(lang)
+            "🔗 Введите URL ссылки:\n\n"
+            "Пример: https://example.com/instruction.pdf\n\n"
+            "Что дальше: После ввода URL → описание → привязка к моделям",
+            reply_markup=back_cancel_keyboard(lang)
         )
 
 # ==================== MESSAGE HANDLERS ====================
@@ -963,21 +1056,27 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await handle_admin_add_model_description(update, context, lang)
             elif state.state == 'admin_add_model_tags':
                 await handle_admin_add_model_tags(update, context, lang)
-            elif state.state == 'admin_add_instruction_title':
-                logger.info(f"Processing admin_add_instruction_title for user {user.id}")
+            elif state.state == 'ADD_INSTR_TITLE':
+                logger.info(f"Processing ADD_INSTR_TITLE for user {user.id}")
                 await handle_admin_add_instruction_title(update, context, lang)
-            elif state.state == 'admin_add_instruction_type':
-                logger.info(f"Processing admin_add_instruction_type for user {user.id}")
+            elif state.state == 'ADD_INSTR_TYPE':
+                logger.info(f"Processing ADD_INSTR_TYPE for user {user.id}")
                 await handle_admin_add_instruction_type(update, context, lang)
-            elif state.state == 'admin_add_instruction_file_wait':
-                logger.info(f"Processing admin_add_instruction_file_wait for user {user.id}")
+            elif state.state == 'ADD_INSTR_FILE_WAIT':
+                logger.info(f"Processing ADD_INSTR_FILE_WAIT for user {user.id}")
                 await handle_admin_add_instruction_file_wait(update, context, lang)
-            elif state.state == 'admin_add_instruction_url':
-                logger.info(f"Processing admin_add_instruction_url for user {user.id}")
+            elif state.state == 'ADD_INSTR_URL_WAIT':
+                logger.info(f"Processing ADD_INSTR_URL_WAIT for user {user.id}")
                 await handle_admin_add_instruction_url(update, context, lang)
-            elif state.state == 'admin_add_instruction_description':
-                logger.info(f"Processing admin_add_instruction_description for user {user.id}")
+            elif state.state == 'ADD_INSTR_DESC':
+                logger.info(f"Processing ADD_INSTR_DESC for user {user.id}")
                 await handle_admin_add_instruction_description(update, context, lang)
+            elif state.state == 'ADD_INSTR_BIND':
+                logger.info(f"Processing ADD_INSTR_BIND for user {user.id}")
+                await handle_admin_add_instruction_bind(update, context, lang)
+            elif state.state == 'ADD_INSTR_CONFIRM':
+                logger.info(f"Processing ADD_INSTR_CONFIRM for user {user.id}")
+                await handle_admin_add_instruction_confirm(update, context, lang)
             else:
                 # Unknown admin state, clear it
                 logger.warning(f"Unknown admin state '{state.state}' for user {user.id}, clearing state")
@@ -1251,7 +1350,7 @@ async def handle_admin_add_instruction_title(update: Update, context: ContextTyp
     logger.info(f"Admin {user_id} entered instruction title: '{title}'")
     
     # Always set the state, even if it was lost
-    user_states[user_id] = UserState('admin_add_instruction_type', {'title': title})
+    user_states[user_id] = UserState('ADD_INSTR_TYPE', {'title': title})
     
     logger.info(f"Admin {user_id} state updated to: admin_add_instruction_type")
     logger.info(f"User states after update: {list(user_states.keys())}")
@@ -1321,13 +1420,14 @@ async def handle_admin_add_instruction_file_wait(update: Update, context: Contex
     
     # Save file_id to state and move to description
     state.data['tg_file_id'] = tg_file_id
-    user_states[user_id] = UserState('admin_add_instruction_description', state.data)
+    user_states[user_id] = UserState('ADD_INSTR_DESC', state.data)
     
     logger.info(f"Admin {user_id} file uploaded successfully, moving to description")
     
     await update.message.reply_text(
-        "✅ Файл загружен успешно!\n\n" + get_text('instruction_description_prompt', lang),
-        reply_markup=cancel_keyboard(lang)
+        "✅ Файл загружен успешно!\n\n" + get_text('instruction_description_prompt', lang) + "\n\n"
+        "Что дальше: После описания → выбор моделей для привязки",
+        reply_markup=back_cancel_keyboard(lang)
     )
 
 async def handle_admin_add_instruction_url(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
@@ -1352,13 +1452,14 @@ async def handle_admin_add_instruction_url(update: Update, context: ContextTypes
     
     # Save URL to state and move to description
     state.data['url'] = url
-    user_states[user_id] = UserState('admin_add_instruction_description', state.data)
+    user_states[user_id] = UserState('ADD_INSTR_DESC', state.data)
     
     logger.info(f"Admin {user_id} URL saved, moving to description")
     
     await update.message.reply_text(
-        "✅ URL сохранен!\n\n" + get_text('instruction_description_prompt', lang),
-        reply_markup=cancel_keyboard(lang)
+        "✅ URL сохранен!\n\n" + get_text('instruction_description_prompt', lang) + "\n\n"
+        "Что дальше: После описания → выбор моделей для привязки",
+        reply_markup=back_cancel_keyboard(lang)
     )
 
 async def handle_admin_add_instruction_description(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
@@ -1373,40 +1474,70 @@ async def handle_admin_add_instruction_description(update: Update, context: Cont
     
     logger.info(f"Admin {user_id} entered description: '{description}'")
     
-    # Save description and create instruction
+    # Save description and move to model binding
     state.data['description'] = description
+    user_states[user_id] = UserState('ADD_INSTR_BIND', state.data)
     
-    # Create instruction directly since we already have all data
+    logger.info(f"Admin {user_id} moving to model binding step")
+    
+    # Get available models for binding
     db = get_session()
     try:
-        files_service = FilesService(db)
+        models_service = ModelsService(db)
+        models = models_service.get_models(page=0, limit=100)
         
-        instruction = files_service.create_instruction(
-            title=state.data['title'],
-            instruction_type=InstructionType(state.data['type']),
-            description=description,
-            tg_file_id=state.data.get('tg_file_id'),
-            url=state.data.get('url')
-        )
-        
-        logger.info(f"Admin {user_id} created instruction: {instruction.title} (ID: {instruction.id})")
+        if not models:
+            await update.message.reply_text(
+                "Нет доступных моделей для привязки. Сначала создайте модели.",
+                reply_markup=admin_instructions_keyboard(lang)
+            )
+            if user_id in user_states:
+                del user_states[user_id]
+            return
         
         await update.message.reply_text(
-            get_text('instruction_created', lang, title=instruction.title),
-            reply_markup=admin_instructions_keyboard(lang)
-        )
-        
-    except Exception as e:
-        logger.error(f"Error creating instruction: {e}")
-        await update.message.reply_text(
-            "Ошибка при создании инструкции. Попробуйте еще раз.",
-            reply_markup=admin_instructions_keyboard(lang)
+            "✅ Описание сохранено!\n\n"
+            "🔗 Выберите модели для привязки инструкции:\n\n"
+            "Что дальше: Выберите модели → подтверждение → сохранение",
+            reply_markup=models_selection_keyboard(models, 0, 'bind', [], lang)
         )
     finally:
         db.close()
-        if user_id in user_states:
-            del user_states[user_id]
 
+
+async def handle_admin_add_instruction_bind(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add instruction model binding"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    
+    logger.info(f"Admin {user_id} in model binding step")
+    
+    # This should be handled by callback queries, but just in case
+    await update.message.reply_text(
+        "Пожалуйста, используйте кнопки выше для выбора моделей.",
+        reply_markup=back_cancel_keyboard(lang)
+    )
+
+async def handle_admin_add_instruction_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add instruction confirmation"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    
+    logger.info(f"Admin {user_id} in confirmation step")
+    
+    # This should be handled by callback queries, but just in case
+    await update.message.reply_text(
+        "Пожалуйста, используйте кнопки выше для подтверждения.",
+        reply_markup=back_cancel_keyboard(lang)
+    )
 
 # ==================== INSTRUCTION MANAGEMENT HANDLERS ====================
 
