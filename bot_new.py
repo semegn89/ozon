@@ -197,10 +197,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_model_instructions(query, model_id, lang)
         elif data.startswith('instruction_'):
             instruction_id = int(data.split('_')[1])
-            await handle_instruction_selected(query, instruction_id, lang)
+            await handle_instruction_selected(query, context, instruction_id, lang)
         elif data.startswith('package_'):
             model_id = int(data.split('_')[1])
-            await handle_download_package(query, model_id, lang)
+            await handle_download_package(query, context, model_id, lang)
         
         # Support
         elif data == 'support':
@@ -438,7 +438,7 @@ async def handle_model_instructions(query, model_id: int, lang: str):
     finally:
         db.close()
 
-async def handle_instruction_selected(query, instruction_id: int, lang: str):
+async def handle_instruction_selected(query, context: ContextTypes.DEFAULT_TYPE, instruction_id: int, lang: str):
     """Handle instruction selection"""
     db = get_session()
     try:
@@ -452,25 +452,25 @@ async def handle_instruction_selected(query, instruction_id: int, lang: str):
         # Send instruction based on type
         if instruction.tg_file_id:
             if instruction.type == InstructionType.PDF:
-                await query.bot.send_document(
+                await context.bot.send_document(
                     chat_id=query.message.chat_id,
                     document=instruction.tg_file_id,
                     caption=instruction.description or instruction.title
                 )
             elif instruction.type == InstructionType.VIDEO:
-                await query.bot.send_video(
+                await context.bot.send_video(
                     chat_id=query.message.chat_id,
                     video=instruction.tg_file_id,
                     caption=instruction.description or instruction.title
                 )
             else:
-                await query.bot.send_document(
+                await context.bot.send_document(
                     chat_id=query.message.chat_id,
                     document=instruction.tg_file_id,
                     caption=instruction.description or instruction.title
                 )
         elif instruction.url:
-            await query.bot.send_message(
+            await context.bot.send_message(
                 chat_id=query.message.chat_id,
                 text=f"🔗 {instruction.title}\n\n{instruction.description or ''}\n\n{instruction.url}"
             )
@@ -479,7 +479,7 @@ async def handle_instruction_selected(query, instruction_id: int, lang: str):
     finally:
         db.close()
 
-async def handle_download_package(query, model_id: int, lang: str):
+async def handle_download_package(query, context: ContextTypes.DEFAULT_TYPE, model_id: int, lang: str):
     """Handle download package"""
     db = get_session()
     try:
@@ -494,25 +494,25 @@ async def handle_download_package(query, model_id: int, lang: str):
         for instruction in model.instructions:
             if instruction.tg_file_id:
                 if instruction.type == InstructionType.PDF:
-                    await query.bot.send_document(
+                    await context.bot.send_document(
                         chat_id=query.message.chat_id,
                         document=instruction.tg_file_id,
                         caption=instruction.title
                     )
                 elif instruction.type == InstructionType.VIDEO:
-                    await query.bot.send_video(
+                    await context.bot.send_video(
                         chat_id=query.message.chat_id,
                         video=instruction.tg_file_id,
                         caption=instruction.title
                     )
                 else:
-                    await query.bot.send_document(
+                    await context.bot.send_document(
                         chat_id=query.message.chat_id,
                         document=instruction.tg_file_id,
                         caption=instruction.title
                     )
             elif instruction.url:
-                await query.bot.send_message(
+                await context.bot.send_message(
                     chat_id=query.message.chat_id,
                     text=f"🔗 {instruction.title}\n{instruction.url}"
                 )
