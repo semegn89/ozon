@@ -223,6 +223,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_admin_instructions(query, lang)
         elif data == 'admin_tickets':
             await handle_admin_tickets(query, lang)
+        elif data == 'admin_settings':
+            await handle_admin_settings(query, lang)
         
         # Admin - Models
         elif data == 'admin_add_model':
@@ -612,6 +614,22 @@ async def handle_admin_tickets(query, lang: str):
         reply_markup=admin_tickets_keyboard(lang)
     )
 
+async def handle_admin_settings(query, lang: str):
+    """Handle admin settings"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    await query.edit_message_text(
+        "⚙️ Настройки бота:\n\n"
+        "🔧 Доступные настройки:\n"
+        "• Управление админами\n"
+        "• Настройки уведомлений\n"
+        "• Языковые настройки\n\n"
+        "Функция в разработке...",
+        reply_markup=admin_menu_keyboard(lang)
+    )
+
 # Admin model handlers
 async def handle_admin_add_model(query, lang: str):
     """Handle admin add model"""
@@ -817,6 +835,10 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     lang = get_user_lang(user.id)
     
+    # Debug logging
+    logger.info(f"Message from user {user.id}: {update.message.text if update.message.text else 'Non-text message'}")
+    logger.info(f"User states: {list(user_states.keys())}")
+    
     if user.id not in user_states:
         await update.message.reply_text(
             "Пожалуйста, используйте меню для навигации.",
@@ -825,6 +847,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     state = user_states[user.id]
+    logger.info(f"User {user.id} state: {state.state}")
     
     try:
         if state.state == 'support_waiting':
@@ -1223,6 +1246,7 @@ def main():
     application.add_handler(MessageHandler(filters.Document.ALL, message_handler))
     application.add_handler(MessageHandler(filters.PHOTO, message_handler))
     application.add_handler(MessageHandler(filters.VIDEO, message_handler))
+    application.add_handler(MessageHandler(filters.ALL, message_handler))  # Catch all messages
     
     application.add_error_handler(error_handler)
     
