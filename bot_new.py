@@ -315,10 +315,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=admin_menu_keyboard(lang)
                 )
             else:
-            await query.edit_message_text(
-                get_text('main_menu', lang),
-                reply_markup=main_menu_keyboard(lang)
-            )
+                await query.edit_message_text(
+                    get_text('main_menu', lang),
+                    reply_markup=main_menu_keyboard(lang)
+                )
         
     except Exception as e:
         logger.error(f"Error in button_callback: {e}")
@@ -1127,11 +1127,11 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_admin_add_instruction_title(update, context, lang)
             return
         else:
-        await update.message.reply_text(
-            "Пожалуйста, используйте меню для навигации.",
-            reply_markup=main_menu_keyboard(lang)
-        )
-        return
+            await update.message.reply_text(
+                "Пожалуйста, используйте меню для навигации.",
+                reply_markup=main_menu_keyboard(lang)
+            )
+            return
     
     state = user_states[user.id]
     logger.info(f"User {user.id} state: {state.state}")
@@ -1409,28 +1409,28 @@ async def handle_admin_add_instruction_file_wait(update: Update, context: Contex
     logger.info(f"Admin {user_id} in handle_admin_add_instruction_file_wait")
         
     # Check if user sent a file
-        tg_file_id = None
+    tg_file_id = None
     file_size = 0
-        
-        if update.message.document:
-            tg_file_id = update.message.document.file_id
+    
+    if update.message.document:
+        tg_file_id = update.message.document.file_id
         file_size = update.message.document.file_size or 0
         logger.info(f"Admin {user_id} sent document: {update.message.document.file_name}, size: {file_size}")
-        elif update.message.video:
-            tg_file_id = update.message.video.file_id
+    elif update.message.video:
+        tg_file_id = update.message.video.file_id
         file_size = update.message.video.file_size or 0
         logger.info(f"Admin {user_id} sent video: {update.message.video.file_name}, size: {file_size}")
-        elif update.message.photo:
-            tg_file_id = update.message.photo[-1].file_id
+    elif update.message.photo:
+        tg_file_id = update.message.photo[-1].file_id
         file_size = update.message.photo[-1].file_size or 0
         logger.info(f"Admin {user_id} sent photo, size: {file_size}")
-        else:
+    else:
         # User sent text instead of file
-            await update.message.reply_text(
+        await update.message.reply_text(
             "Пожалуйста, пришлите файл. Для отмены — нажмите ❌ Отмена.",
-                reply_markup=cancel_keyboard(lang)
-            )
-            return
+            reply_markup=back_cancel_keyboard(lang)
+        )
+        return
         
     # Check file size (20 MB limit)
     if file_size > 20 * 1024 * 1024:  # 20 MB in bytes
@@ -1469,8 +1469,8 @@ async def handle_admin_add_instruction_file_wait(update: Update, context: Contex
     user_states[user_id] = UserState('ADD_INSTR_DESC', state.data)
     
     logger.info(f"Admin {user_id} file uploaded successfully, moving to description")
-        
-        await update.message.reply_text(
+    
+    await update.message.reply_text(
         "✅ Файл загружен успешно!\n\n" + get_text('instruction_description_prompt', lang) + "\n\n"
         "Что дальше: После описания → выбор моделей для привязки",
         reply_markup=back_cancel_keyboard(lang)
@@ -2098,15 +2098,15 @@ def main():
     
     # Start bot with conflict handling
     try:
-    if MODE == 'WEBHOOK' and WEBHOOK_URL:
-        logger.info("Starting bot in webhook mode...")
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=8443,
-            webhook_url=WEBHOOK_URL
-        )
-    else:
-        logger.info("Starting bot in polling mode...")
+        if MODE == 'WEBHOOK' and WEBHOOK_URL:
+            logger.info("Starting bot in webhook mode...")
+            application.run_webhook(
+                listen="0.0.0.0",
+                port=8443,
+                webhook_url=WEBHOOK_URL
+            )
+        else:
+            logger.info("Starting bot in polling mode...")
             # Add a small delay to avoid immediate conflicts
             time.sleep(2)
             application.run_polling(
