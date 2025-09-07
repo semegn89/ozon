@@ -1,15 +1,18 @@
 import logging
 import math
+import signal
+import sys
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler,
     ContextTypes, filters
 )
-from telegram.error import TelegramError
+from telegram.error import TelegramError, Conflict
 import asyncio
 from datetime import datetime, timedelta
 from aiohttp import web
 import threading
+import time
 
 # Import our modules
 from config import BOT_TOKEN, ADMIN_CHAT_IDS, MODE, WEBHOOK_URL
@@ -35,6 +38,10 @@ class UserState:
         self.state = state
         self.data = data or {}
 
+# Global variables for graceful shutdown
+shutdown_event = threading.Event()
+application_instance = None
+
 def is_admin(user_id: int) -> bool:
     """Check if user is admin"""
     return user_id in ADMIN_CHAT_IDS
@@ -43,6 +50,35 @@ def get_user_lang(user_id: int) -> str:
     """Get user language (default: ru)"""
     # TODO: Implement language preference storage
     return 'ru'
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+    shutdown_event.set()
+    if application_instance:
+        try:
+            # Stop the application gracefully
+            asyncio.create_task(application_instance.stop())
+            asyncio.create_task(application_instance.shutdown())
+        except Exception as e:
+            logger.error(f"Error during shutdown: {e}")
+    sys.exit(0)
+
+async def handle_conflict_retry(func, max_retries=3, delay=5):
+    """Handle conflict errors with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            return await func()
+        except Conflict as e:
+            if attempt < max_retries - 1:
+                logger.warning(f"Conflict detected (attempt {attempt + 1}/{max_retries}): {e}")
+                await asyncio.sleep(delay * (attempt + 1))  # Exponential backoff
+            else:
+                logger.error(f"Max retries reached for conflict: {e}")
+                raise
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            raise
 
 # ==================== COMMAND HANDLERS ====================
 
@@ -1114,10 +1150,18 @@ async def handle_admin_add_instruction_file(update: Update, context: ContextType
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle errors"""
-    logger.error(f"Exception while handling an update: {context.error}")
+    error = context.error
     
-    # Send error to admins
-    error_text = f"🚨 Ошибка в боте:\n\n{str(context.error)}"
+    # Handle conflict errors specifically
+    if isinstance(error, Conflict):
+        logger.warning(f"Conflict detected: {error}")
+        # Don't send conflict errors to admins as they're usually temporary
+        return
+    
+    logger.error(f"Exception while handling an update: {error}")
+    
+    # Send error to admins (but not for conflicts)
+    error_text = f"🚨 Ошибка в боте:\n\n{str(error)}"
     for admin_id in ADMIN_CHAT_IDS:
         try:
             await context.bot.send_message(chat_id=admin_id, text=error_text)
@@ -1151,6 +1195,12 @@ def start_healthcheck_server():
 
 def main():
     """Main function"""
+    global application_instance
+    
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     # Create database tables
     create_tables()
     
@@ -1158,8 +1208,9 @@ def main():
     healthcheck_thread = threading.Thread(target=start_healthcheck_server, daemon=True)
     healthcheck_thread.start()
     
-    # Create application
+    # Create application with better error handling
     application = Application.builder().token(BOT_TOKEN).build()
+    application_instance = application
     
     # Add handlers
     application.add_handler(CommandHandler("start", start_command))
@@ -1175,17 +1226,44 @@ def main():
     
     application.add_error_handler(error_handler)
     
-    # Start bot
-    if MODE == 'WEBHOOK' and WEBHOOK_URL:
-        logger.info("Starting bot in webhook mode...")
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=8443,
-            webhook_url=WEBHOOK_URL
-        )
-    else:
-        logger.info("Starting bot in polling mode...")
-        application.run_polling()
+    # Start bot with conflict handling
+    try:
+        if MODE == 'WEBHOOK' and WEBHOOK_URL:
+            logger.info("Starting bot in webhook mode...")
+            application.run_webhook(
+                listen="0.0.0.0",
+                port=8443,
+                webhook_url=WEBHOOK_URL
+            )
+        else:
+            logger.info("Starting bot in polling mode...")
+            # Add a small delay to avoid immediate conflicts
+            time.sleep(2)
+            application.run_polling(
+                drop_pending_updates=True,  # Drop pending updates to avoid conflicts
+                allowed_updates=None,  # Allow all update types
+                close_loop=False  # Don't close the event loop on shutdown
+            )
+    except Conflict as e:
+        logger.error(f"Bot conflict detected: {e}")
+        logger.info("Attempting to clear webhook and restart...")
+        
+        # Clear webhook and try again
+        import requests
+        try:
+            clear_url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
+            response = requests.post(clear_url, json={"drop_pending_updates": True})
+            if response.status_code == 200:
+                logger.info("Webhook cleared successfully, restarting...")
+                time.sleep(5)  # Wait before restarting
+                application.run_polling(drop_pending_updates=True)
+            else:
+                logger.error(f"Failed to clear webhook: {response.text}")
+        except Exception as clear_error:
+            logger.error(f"Error clearing webhook: {clear_error}")
+    except Exception as e:
+        logger.error(f"Unexpected error starting bot: {e}")
+        raise
 
 if __name__ == "__main__":
     main()

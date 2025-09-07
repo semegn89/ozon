@@ -1,1 +1,1 @@
-worker: python bot_new.py
+worker: python start_bot_safe.py
