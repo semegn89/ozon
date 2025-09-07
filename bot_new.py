@@ -8,6 +8,8 @@ from telegram.ext import (
 from telegram.error import TelegramError
 import asyncio
 from datetime import datetime, timedelta
+from aiohttp import web
+import threading
 
 # Import our modules
 from config import BOT_TOKEN, ADMIN_CHAT_IDS, MODE, WEBHOOK_URL
@@ -1122,12 +1124,39 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
+# ==================== HEALTHCHECK SERVER ====================
+
+async def healthcheck_handler(request):
+    """Simple healthcheck endpoint"""
+    return web.Response(text="OK", status=200)
+
+def start_healthcheck_server():
+    """Start simple HTTP server for healthcheck"""
+    app = web.Application()
+    app.router.add_get('/health', healthcheck_handler)
+    app.router.add_get('/', healthcheck_handler)
+    
+    runner = web.AppRunner(app)
+    asyncio.set_event_loop(asyncio.new_event_loop())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(runner.setup())
+    
+    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    loop.run_until_complete(site.start())
+    
+    logger.info("Healthcheck server started on port 8080")
+    loop.run_forever()
+
 # ==================== MAIN FUNCTION ====================
 
 def main():
     """Main function"""
     # Create database tables
     create_tables()
+    
+    # Start healthcheck server in background
+    healthcheck_thread = threading.Thread(target=start_healthcheck_server, daemon=True)
+    healthcheck_thread.start()
     
     # Create application
     application = Application.builder().token(BOT_TOKEN).build()
