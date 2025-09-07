@@ -265,11 +265,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Cancel
         elif data == 'cancel':
             # Clear user state
-            if user.id in user_states:
-                del user_states[user.id]
+            if query.from_user.id in user_states:
+                del user_states[query.from_user.id]
             
             # Return to appropriate menu based on user type
-            if is_admin(user.id):
+            if is_admin(query.from_user.id):
                 await query.edit_message_text(
                     get_text('admin_menu', lang),
                     reply_markup=admin_menu_keyboard(lang)
