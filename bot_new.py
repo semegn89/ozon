@@ -249,6 +249,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data == 'admin_ticket_stats':
             await handle_admin_ticket_stats(query, lang)
         
+        # Instruction type selection
+        elif data.startswith('type_'):
+            instruction_type = data.split('_')[1]
+            await handle_instruction_type_selection(query, instruction_type, lang)
+        
         # Confirmation dialogs
         elif data.startswith('confirm_'):
             action = data.split('_', 1)[1]
@@ -259,10 +264,21 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Cancel
         elif data == 'cancel':
-            await query.edit_message_text(
-                get_text('main_menu', lang),
-                reply_markup=main_menu_keyboard(lang)
-            )
+            # Clear user state
+            if user.id in user_states:
+                del user_states[user.id]
+            
+            # Return to appropriate menu based on user type
+            if is_admin(user.id):
+                await query.edit_message_text(
+                    get_text('admin_menu', lang),
+                    reply_markup=admin_menu_keyboard(lang)
+                )
+            else:
+                await query.edit_message_text(
+                    get_text('main_menu', lang),
+                    reply_markup=main_menu_keyboard(lang)
+                )
         
     except Exception as e:
         logger.error(f"Error in button_callback: {e}")
@@ -847,6 +863,35 @@ async def handle_cancellation(query, action: str, lang: str):
         reply_markup=admin_menu_keyboard(lang)
     )
 
+async def handle_instruction_type_selection(query, instruction_type: str, lang: str):
+    """Handle instruction type selection"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    user_id = query.from_user.id
+    state = user_states[user_id]
+    
+    # Map type to enum
+    type_mapping = {
+        'pdf': 'pdf',
+        'video': 'video', 
+        'link': 'link'
+    }
+    
+    if instruction_type not in type_mapping:
+        await query.answer("Неверный тип инструкции", show_alert=True)
+        return
+    
+    # Update state with type
+    state.data['type'] = type_mapping[instruction_type]
+    user_states[user_id] = UserState('admin_add_instruction_description', state.data)
+    
+    await query.edit_message_text(
+        get_text('instruction_description_prompt', lang),
+        reply_markup=cancel_keyboard(lang)
+    )
+
 # ==================== MESSAGE HANDLERS ====================
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -858,6 +903,45 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"Message from user {user.id}: {update.message.text if update.message.text else 'Non-text message'}")
     logger.info(f"User states: {list(user_states.keys())}")
     
+    # Check if user is admin and has admin state
+    if is_admin(user.id) and user.id in user_states:
+        state = user_states[user.id]
+        logger.info(f"Admin {user.id} state: {state.state}")
+        
+        # Handle admin states first
+        try:
+            if state.state == 'admin_add_model_name':
+                await handle_admin_add_model_name(update, context, lang)
+            elif state.state == 'admin_add_model_description':
+                await handle_admin_add_model_description(update, context, lang)
+            elif state.state == 'admin_add_model_tags':
+                await handle_admin_add_model_tags(update, context, lang)
+            elif state.state == 'admin_add_instruction_title':
+                await handle_admin_add_instruction_title(update, context, lang)
+            elif state.state == 'admin_add_instruction_type':
+                await handle_admin_add_instruction_type(update, context, lang)
+            elif state.state == 'admin_add_instruction_description':
+                await handle_admin_add_instruction_description(update, context, lang)
+            elif state.state == 'admin_add_instruction_file':
+                await handle_admin_add_instruction_file(update, context, lang)
+            else:
+                # Unknown admin state, clear it
+                del user_states[user.id]
+                await update.message.reply_text(
+                    "Неизвестное состояние админа. Возвращаемся в админ-меню.",
+                    reply_markup=admin_menu_keyboard(lang)
+                )
+        except Exception as e:
+            logger.error(f"Error in admin message handler: {e}")
+            await update.message.reply_text(
+                "Ошибка в админ-панели. Возвращаемся в админ-меню.",
+                reply_markup=admin_menu_keyboard(lang)
+            )
+            if user.id in user_states:
+                del user_states[user.id]
+        return
+    
+    # Handle regular user states
     if user.id not in user_states:
         await update.message.reply_text(
             "Пожалуйста, используйте меню для навигации.",
@@ -1119,6 +1203,21 @@ async def handle_admin_add_instruction_title(update: Update, context: ContextTyp
         reply_markup=instruction_type_keyboard(lang)
     )
 
+async def handle_admin_add_instruction_type(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add instruction type selection"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    
+    # This should be handled by callback, but just in case
+    await update.message.reply_text(
+        "Пожалуйста, выберите тип инструкции с помощью кнопок выше.",
+        reply_markup=instruction_type_keyboard(lang)
+    )
+
 async def handle_admin_add_instruction_description(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
     """Handle admin add instruction description"""
     if not is_admin(update.effective_user.id):
@@ -1135,8 +1234,14 @@ async def handle_admin_add_instruction_description(update: Update, context: Cont
         'description': description
     })
     
+    # Different prompts based on type
+    if state.data['type'] == 'link':
+        prompt = "Введите URL ссылки:"
+    else:
+        prompt = get_text('instruction_file_prompt', lang)
+    
     await update.message.reply_text(
-        get_text('instruction_file_prompt', lang),
+        prompt,
         reply_markup=cancel_keyboard(lang)
     )
 
@@ -1156,20 +1261,31 @@ async def handle_admin_add_instruction_file(update: Update, context: ContextType
         tg_file_id = None
         url = None
         
-        if update.message.document:
-            tg_file_id = update.message.document.file_id
-        elif update.message.video:
-            tg_file_id = update.message.video.file_id
-        elif update.message.photo:
-            tg_file_id = update.message.photo[-1].file_id
-        elif update.message.text and update.message.text.startswith('http'):
-            url = update.message.text
+        # Handle different types
+        if state.data['type'] == 'link':
+            # For links, expect URL in text
+            if update.message.text and update.message.text.startswith('http'):
+                url = update.message.text
+            else:
+                await update.message.reply_text(
+                    "Пожалуйста, отправьте корректный URL (начинающийся с http).",
+                    reply_markup=cancel_keyboard(lang)
+                )
+                return
         else:
-            await update.message.reply_text(
-                "Пожалуйста, отправьте файл или URL.",
-                reply_markup=cancel_keyboard(lang)
-            )
-            return
+            # For files, expect file upload
+            if update.message.document:
+                tg_file_id = update.message.document.file_id
+            elif update.message.video:
+                tg_file_id = update.message.video.file_id
+            elif update.message.photo:
+                tg_file_id = update.message.photo[-1].file_id
+            else:
+                await update.message.reply_text(
+                    "Пожалуйста, отправьте файл.",
+                    reply_markup=cancel_keyboard(lang)
+                )
+                return
         
         instruction = files_service.create_instruction(
             title=state.data['title'],
