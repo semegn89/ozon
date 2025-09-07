@@ -978,11 +978,18 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Handle regular user states
     if user.id not in user_states:
-        await update.message.reply_text(
-            "Пожалуйста, используйте меню для навигации.",
-            reply_markup=main_menu_keyboard(lang)
-        )
-        return
+        # If admin is trying to enter text but has no state, they might be in the middle of adding instruction
+        if is_admin(user.id) and update.message.text:
+            logger.info(f"Admin {user.id} has no state but sent text: '{update.message.text}' - assuming instruction title")
+            user_states[user.id] = UserState('admin_add_instruction_title')
+            await handle_admin_add_instruction_title(update, context, lang)
+            return
+        else:
+            await update.message.reply_text(
+                "Пожалуйста, используйте меню для навигации.",
+                reply_markup=main_menu_keyboard(lang)
+            )
+            return
     
     state = user_states[user.id]
     logger.info(f"User {user.id} state: {state.state}")
@@ -1222,9 +1229,11 @@ async def handle_admin_add_instruction_title(update: Update, context: ContextTyp
     
     logger.info(f"Admin {user_id} entered instruction title: '{title}'")
     
+    # Always set the state, even if it was lost
     user_states[user_id] = UserState('admin_add_instruction_type', {'title': title})
     
     logger.info(f"Admin {user_id} state updated to: admin_add_instruction_type")
+    logger.info(f"User states after update: {list(user_states.keys())}")
     
     await update.message.reply_text(
         get_text('instruction_type_prompt', lang),
