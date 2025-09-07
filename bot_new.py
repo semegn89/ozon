@@ -1411,18 +1411,22 @@ async def handle_admin_add_instruction_file_wait(update: Update, context: Contex
     # Check if user sent a file
     tg_file_id = None
     file_size = 0
+    file_name = ""
     
     if update.message.document:
         tg_file_id = update.message.document.file_id
         file_size = update.message.document.file_size or 0
-        logger.info(f"Admin {user_id} sent document: {update.message.document.file_name}, size: {file_size}")
+        file_name = update.message.document.file_name or "document"
+        logger.info(f"Admin {user_id} sent document: {file_name}, size: {file_size}")
     elif update.message.video:
         tg_file_id = update.message.video.file_id
         file_size = update.message.video.file_size or 0
-        logger.info(f"Admin {user_id} sent video: {update.message.video.file_name}, size: {file_size}")
+        file_name = update.message.video.file_name or "video"
+        logger.info(f"Admin {user_id} sent video: {file_name}, size: {file_size}")
     elif update.message.photo:
         tg_file_id = update.message.photo[-1].file_id
         file_size = update.message.photo[-1].file_size or 0
+        file_name = "photo.jpg"  # Photos don't have file names
         logger.info(f"Admin {user_id} sent photo, size: {file_size}")
     else:
         # User sent text instead of file
