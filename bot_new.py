@@ -917,6 +917,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin(user.id) and user.id in user_states:
         state = user_states[user.id]
         logger.info(f"Admin {user.id} state: {state.state}")
+        logger.info(f"Admin {user.id} state data: {state.data}")
         
         # Handle admin states first
         try:
@@ -927,15 +928,20 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif state.state == 'admin_add_model_tags':
                 await handle_admin_add_model_tags(update, context, lang)
             elif state.state == 'admin_add_instruction_title':
+                logger.info(f"Processing admin_add_instruction_title for user {user.id}")
                 await handle_admin_add_instruction_title(update, context, lang)
             elif state.state == 'admin_add_instruction_type':
+                logger.info(f"Processing admin_add_instruction_type for user {user.id}")
                 await handle_admin_add_instruction_type(update, context, lang)
             elif state.state == 'admin_add_instruction_description':
+                logger.info(f"Processing admin_add_instruction_description for user {user.id}")
                 await handle_admin_add_instruction_description(update, context, lang)
             elif state.state == 'admin_add_instruction_file':
+                logger.info(f"Processing admin_add_instruction_file for user {user.id}")
                 await handle_admin_add_instruction_file(update, context, lang)
             else:
                 # Unknown admin state, clear it
+                logger.warning(f"Unknown admin state '{state.state}' for user {user.id}, clearing state")
                 del user_states[user.id]
                 await update.message.reply_text(
                     "Неизвестное состояние админа. Возвращаемся в админ-меню.",
@@ -943,6 +949,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
         except Exception as e:
             logger.error(f"Error in admin message handler: {e}")
+            logger.error(f"Admin {user.id} state was: {state.state}")
             await update.message.reply_text(
                 "Ошибка в админ-панели. Возвращаемся в админ-меню.",
                 reply_markup=admin_menu_keyboard(lang)
@@ -969,18 +976,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_support_model_message(update, context, lang)
         elif state.state == 'search_waiting':
             await handle_search_message(update, context, lang)
-        elif state.state == 'admin_add_model_name':
-            await handle_admin_add_model_name(update, context, lang)
-        elif state.state == 'admin_add_model_description':
-            await handle_admin_add_model_description(update, context, lang)
-        elif state.state == 'admin_add_model_tags':
-            await handle_admin_add_model_tags(update, context, lang)
-        elif state.state == 'admin_add_instruction_title':
-            await handle_admin_add_instruction_title(update, context, lang)
-        elif state.state == 'admin_add_instruction_description':
-            await handle_admin_add_instruction_description(update, context, lang)
-        elif state.state == 'admin_add_instruction_file':
-            await handle_admin_add_instruction_file(update, context, lang)
+        # Admin states are handled above in the admin section
         else:
             await update.message.reply_text(
                 "Неизвестное состояние. Возвращаемся в главное меню.",
@@ -1267,6 +1263,9 @@ async def handle_admin_add_instruction_file(update: Update, context: ContextType
     
     user_id = update.effective_user.id
     state = user_states[user_id]
+    
+    logger.info(f"Admin {user_id} in handle_admin_add_instruction_file")
+    logger.info(f"State data: {state.data}")
     
     db = get_session()
     try:
