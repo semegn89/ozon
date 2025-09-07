@@ -30,13 +30,24 @@ stop_bot() {
         if ps -p $PID > /dev/null; then
             echo "$(date): Stopping bot (PID: $PID)..." >> "$LOG_FILE"
             kill $PID
+            sleep 2
+            # Force kill if still running
+            if ps -p $PID > /dev/null; then
+                echo "$(date): Force killing bot (PID: $PID)..." >> "$LOG_FILE"
+                kill -9 $PID
+            fi
             rm "$PID_FILE"
         fi
     fi
+    
+    # Kill any remaining bot processes
+    pkill -f "bot_new.py" 2>/dev/null || true
+    echo "$(date): All bot processes stopped" >> "$LOG_FILE"
 }
 
 # Function to check if bot is running
 is_running() {
+    # Check PID file first
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
         if ps -p $PID > /dev/null; then
@@ -45,6 +56,12 @@ is_running() {
             rm "$PID_FILE"
         fi
     fi
+    
+    # Check for any bot processes
+    if pgrep -f "bot_new.py" > /dev/null; then
+        return 0
+    fi
+    
     return 1
 }
 
@@ -70,13 +87,23 @@ case "$1" in
         ;;
     status)
         if is_running; then
-            echo "Bot is running (PID: $(cat $PID_FILE))"
+            if [ -f "$PID_FILE" ]; then
+                echo "Bot is running (PID: $(cat $PID_FILE))"
+            else
+                echo "Bot is running (no PID file)"
+            fi
         else
             echo "Bot is not running"
         fi
         ;;
+    clean)
+        echo "Cleaning up all bot processes..."
+        pkill -f "bot_new.py" 2>/dev/null || true
+        rm -f "$PID_FILE"
+        echo "Cleanup complete"
+        ;;
     *)
-        echo "Usage: $0 {start|stop|restart|status}"
+        echo "Usage: $0 {start|stop|restart|status|clean}"
         exit 1
         ;;
 esac
