@@ -183,6 +183,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_models_page(query, page, lang)
         elif data.startswith('model_'):
             model_id = int(data.split('_')[1])
+            logger.info(f"Model button clicked: callback_data='{data}', model_id={model_id}")
             await handle_model_selected(query, model_id, lang)
         
         # Instructions
@@ -281,6 +282,11 @@ async def handle_choose_model(query, lang: str):
         total_count = models_service.get_models_count()
         total_pages = math.ceil(total_count / 10)
         
+        # Debug logging
+        logger.info(f"Found {len(models)} models, total: {total_count}")
+        for model in models:
+            logger.info(f"Model: ID={model.id}, name='{model.name}'")
+        
         if not models:
             await query.edit_message_text(
                 "Модели не найдены. Обратитесь к администратору.",
@@ -316,7 +322,20 @@ async def handle_model_selected(query, model_id: int, lang: str):
     db = get_session()
     try:
         models_service = ModelsService(db)
+        
+        # Debug logging
+        logger.info(f"Looking for model with ID: {model_id}")
+        
         model = models_service.get_model_by_id(model_id)
+        
+        # Debug logging
+        if model:
+            logger.info(f"Model found: ID={model.id}, name='{model.name}'")
+        else:
+            logger.warning(f"Model not found with ID: {model_id}")
+            # Let's also check what models exist
+            all_models = models_service.get_models(page=0, limit=100)
+            logger.info(f"Available models: {[(m.id, m.name) for m in all_models]}")
         
         if not model:
             await query.edit_message_text(
@@ -1055,11 +1074,18 @@ async def handle_admin_add_model_tags(update: Update, context: ContextTypes.DEFA
     db = get_session()
     try:
         models_service = ModelsService(db)
+        
+        # Debug logging
+        logger.info(f"Creating model: name='{state.data['name']}', description='{state.data['description']}', tags='{tags}'")
+        
         model = models_service.create_model(
             name=state.data['name'],
             description=state.data['description'],
             tags=tags
         )
+        
+        # Debug logging
+        logger.info(f"Model created successfully: ID={model.id}, name='{model.name}'")
         
         await update.message.reply_text(
             get_text('model_created', lang, name=model.name),
