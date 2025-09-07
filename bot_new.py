@@ -911,14 +911,32 @@ async def handle_instruction_type_selection(query, instruction_type: str, lang: 
     
     # Update state with type
     state.data['type'] = type_mapping[instruction_type]
-    user_states[user_id] = UserState('admin_add_instruction_description', state.data)
     
-    logger.info(f"Admin {user_id} state updated to: admin_add_instruction_description")
-    
-    await query.edit_message_text(
-        get_text('instruction_description_prompt', lang),
-        reply_markup=cancel_keyboard(lang)
-    )
+    # Different flow based on type
+    if instruction_type in ['pdf', 'video']:
+        # For file types, wait for file upload first
+        user_states[user_id] = UserState('admin_add_instruction_file_wait', state.data)
+        logger.info(f"Admin {user_id} state updated to: admin_add_instruction_file_wait")
+        
+        await query.edit_message_text(
+            "📎 Пришлите файл (PDF, DOC, JPG, ZIP, MP4, AVI и т.д.)\n\n"
+            "Поддерживаемые форматы:\n"
+            "• PDF, DOC, DOCX\n"
+            "• JPG, PNG, GIF\n"
+            "• ZIP, RAR\n"
+            "• MP4, AVI, MOV (для видео)\n\n"
+            "Максимальный размер: 20 MB",
+            reply_markup=cancel_keyboard(lang)
+        )
+    else:
+        # For link type, go directly to URL input
+        user_states[user_id] = UserState('admin_add_instruction_url', state.data)
+        logger.info(f"Admin {user_id} state updated to: admin_add_instruction_url")
+        
+        await query.edit_message_text(
+            "🔗 Введите URL ссылки:",
+            reply_markup=cancel_keyboard(lang)
+        )
 
 # ==================== MESSAGE HANDLERS ====================
 
@@ -951,12 +969,15 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif state.state == 'admin_add_instruction_type':
                 logger.info(f"Processing admin_add_instruction_type for user {user.id}")
                 await handle_admin_add_instruction_type(update, context, lang)
+            elif state.state == 'admin_add_instruction_file_wait':
+                logger.info(f"Processing admin_add_instruction_file_wait for user {user.id}")
+                await handle_admin_add_instruction_file_wait(update, context, lang)
+            elif state.state == 'admin_add_instruction_url':
+                logger.info(f"Processing admin_add_instruction_url for user {user.id}")
+                await handle_admin_add_instruction_url(update, context, lang)
             elif state.state == 'admin_add_instruction_description':
                 logger.info(f"Processing admin_add_instruction_description for user {user.id}")
                 await handle_admin_add_instruction_description(update, context, lang)
-            elif state.state == 'admin_add_instruction_file':
-                logger.info(f"Processing admin_add_instruction_file for user {user.id}")
-                await handle_admin_add_instruction_file(update, context, lang)
             else:
                 # Unknown admin state, clear it
                 logger.warning(f"Unknown admin state '{state.state}' for user {user.id}, clearing state")
@@ -1255,6 +1276,91 @@ async def handle_admin_add_instruction_type(update: Update, context: ContextType
         reply_markup=instruction_type_keyboard(lang)
     )
 
+async def handle_admin_add_instruction_file_wait(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add instruction file upload"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    
+    logger.info(f"Admin {user_id} in handle_admin_add_instruction_file_wait")
+    
+    # Check if user sent a file
+    tg_file_id = None
+    file_size = 0
+    
+    if update.message.document:
+        tg_file_id = update.message.document.file_id
+        file_size = update.message.document.file_size or 0
+        logger.info(f"Admin {user_id} sent document: {update.message.document.file_name}, size: {file_size}")
+    elif update.message.video:
+        tg_file_id = update.message.video.file_id
+        file_size = update.message.video.file_size or 0
+        logger.info(f"Admin {user_id} sent video: {update.message.video.file_name}, size: {file_size}")
+    elif update.message.photo:
+        tg_file_id = update.message.photo[-1].file_id
+        file_size = update.message.photo[-1].file_size or 0
+        logger.info(f"Admin {user_id} sent photo, size: {file_size}")
+    else:
+        # User sent text instead of file
+        await update.message.reply_text(
+            "Пожалуйста, пришлите файл. Для отмены — нажмите ❌ Отмена.",
+            reply_markup=cancel_keyboard(lang)
+        )
+        return
+    
+    # Check file size (20 MB limit)
+    if file_size > 20 * 1024 * 1024:  # 20 MB in bytes
+        await update.message.reply_text(
+            "Файл слишком большой (больше 20 MB). Загрузите через облако и используйте ссылку.",
+            reply_markup=cancel_keyboard(lang)
+        )
+        return
+    
+    # Save file_id to state and move to description
+    state.data['tg_file_id'] = tg_file_id
+    user_states[user_id] = UserState('admin_add_instruction_description', state.data)
+    
+    logger.info(f"Admin {user_id} file uploaded successfully, moving to description")
+    
+    await update.message.reply_text(
+        "✅ Файл загружен успешно!\n\n" + get_text('instruction_description_prompt', lang),
+        reply_markup=cancel_keyboard(lang)
+    )
+
+async def handle_admin_add_instruction_url(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add instruction URL input"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    url = update.message.text
+    
+    logger.info(f"Admin {user_id} entered URL: '{url}'")
+    
+    # Validate URL
+    if not url.startswith(('http://', 'https://')):
+        await update.message.reply_text(
+            "Пожалуйста, отправьте корректный URL (начинающийся с http:// или https://).",
+            reply_markup=cancel_keyboard(lang)
+        )
+        return
+    
+    # Save URL to state and move to description
+    state.data['url'] = url
+    user_states[user_id] = UserState('admin_add_instruction_description', state.data)
+    
+    logger.info(f"Admin {user_id} URL saved, moving to description")
+    
+    await update.message.reply_text(
+        "✅ URL сохранен!\n\n" + get_text('instruction_description_prompt', lang),
+        reply_markup=cancel_keyboard(lang)
+    )
+
 async def handle_admin_add_instruction_description(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
     """Handle admin add instruction description"""
     if not is_admin(update.effective_user.id):
@@ -1265,75 +1371,25 @@ async def handle_admin_add_instruction_description(update: Update, context: Cont
     state = user_states[user_id]
     description = update.message.text if update.message.text != '/skip' else None
     
-    user_states[user_id] = UserState('admin_add_instruction_file', {
-        'title': state.data['title'],
-        'type': state.data['type'],
-        'description': description
-    })
+    logger.info(f"Admin {user_id} entered description: '{description}'")
     
-    # Different prompts based on type
-    if state.data['type'] == 'link':
-        prompt = "Введите URL ссылки:"
-    else:
-        prompt = get_text('instruction_file_prompt', lang)
+    # Save description and create instruction
+    state.data['description'] = description
     
-    await update.message.reply_text(
-        prompt,
-        reply_markup=cancel_keyboard(lang)
-    )
-
-async def handle_admin_add_instruction_file(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
-    """Handle admin add instruction file"""
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text(get_text('access_denied', lang))
-        return
-    
-    user_id = update.effective_user.id
-    state = user_states[user_id]
-    
-    logger.info(f"Admin {user_id} in handle_admin_add_instruction_file")
-    logger.info(f"State data: {state.data}")
-    
+    # Create instruction directly since we already have all data
     db = get_session()
     try:
         files_service = FilesService(db)
         
-        tg_file_id = None
-        url = None
-        
-        # Handle different types
-        if state.data['type'] == 'link':
-            # For links, expect URL in text
-            if update.message.text and update.message.text.startswith('http'):
-                url = update.message.text
-            else:
-                await update.message.reply_text(
-                    "Пожалуйста, отправьте корректный URL (начинающийся с http).",
-                    reply_markup=cancel_keyboard(lang)
-                )
-                return
-        else:
-            # For files, expect file upload
-            if update.message.document:
-                tg_file_id = update.message.document.file_id
-            elif update.message.video:
-                tg_file_id = update.message.video.file_id
-            elif update.message.photo:
-                tg_file_id = update.message.photo[-1].file_id
-            else:
-                await update.message.reply_text(
-                    "Пожалуйста, отправьте файл.",
-                    reply_markup=cancel_keyboard(lang)
-                )
-                return
-        
         instruction = files_service.create_instruction(
             title=state.data['title'],
             instruction_type=InstructionType(state.data['type']),
-            description=state.data['description'],
-            tg_file_id=tg_file_id,
-            url=url
+            description=description,
+            tg_file_id=state.data.get('tg_file_id'),
+            url=state.data.get('url')
         )
+        
+        logger.info(f"Admin {user_id} created instruction: {instruction.title} (ID: {instruction.id})")
         
         await update.message.reply_text(
             get_text('instruction_created', lang, title=instruction.title),
@@ -1350,6 +1406,7 @@ async def handle_admin_add_instruction_file(update: Update, context: ContextType
         db.close()
         if user_id in user_states:
             del user_states[user_id]
+
 
 # ==================== INSTRUCTION MANAGEMENT HANDLERS ====================
 
