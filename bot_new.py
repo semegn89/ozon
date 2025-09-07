@@ -169,6 +169,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     
     try:
+        logger.info(f"Button callback from user {user.id}: {data}")
+        
         # Main menu
         if data == 'main_menu':
             await query.edit_message_text(
@@ -302,6 +304,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         logger.error(f"Error in button_callback: {e}")
+        logger.error(f"User ID: {user.id}")
+        logger.error(f"Callback data: {data}")
+        logger.error(f"User states: {list(user_states.keys())}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         await query.edit_message_text(
             get_text('error_occurred', lang),
             reply_markup=main_menu_keyboard(lang)
@@ -876,9 +883,20 @@ async def handle_instruction_type_selection(query, instruction_type: str, lang: 
         return
     
     user_id = query.from_user.id
-    state = user_states[user_id]
     
+    # Check if user has state
+    if user_id not in user_states:
+        logger.error(f"Admin {user_id} has no state when selecting instruction type")
+        await query.edit_message_text(
+            "Сессия истекла. Начните добавление инструкции заново.",
+            reply_markup=admin_instructions_keyboard(lang)
+        )
+        return
+    
+    state = user_states[user_id]
     logger.info(f"Admin {user_id} selected instruction type: '{instruction_type}'")
+    logger.info(f"Admin {user_id} current state: {state.state}")
+    logger.info(f"Admin {user_id} state data: {state.data}")
     
     # Map type to enum
     type_mapping = {
