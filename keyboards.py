@@ -256,3 +256,47 @@ def models_selection_keyboard(models: List[Model], instruction_id: int, action: 
     
     buttons.append([InlineKeyboardButton(get_text('cancel', lang), callback_data='admin_list_instructions')])
     return InlineKeyboardMarkup(buttons)
+
+def new_instruction_models_keyboard(models: List[Model], selected_models: List[int] = None, 
+                                   page: int = 0, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Models selection keyboard for new instruction creation"""
+    if selected_models is None:
+        selected_models = []
+    
+    buttons = []
+    
+    # Show models with checkboxes
+    for model in models:
+        is_selected = model.id in selected_models
+        prefix = "✅" if is_selected else "⬜"
+        
+        action = 'unbind_model' if is_selected else 'bind_model'
+        buttons.append([InlineKeyboardButton(
+            f"{prefix} {model.name}",
+            callback_data=f'{action}_{model.id}'
+        )])
+    
+    # Add pagination if needed
+    if len(models) >= 10:  # Assuming 10 models per page
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f'page_models_{page-1}'))
+        nav_buttons.append(InlineKeyboardButton(f"{page+1}", callback_data='current_page'))
+        if len(models) == 10:  # More pages available
+            nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f'page_models_{page+1}'))
+        buttons.append(nav_buttons)
+    
+    # Add action buttons
+    if selected_models:
+        buttons.append([InlineKeyboardButton(
+            f"💾 Продолжить ({len(selected_models)} моделей)",
+            callback_data='confirm_create_instruction'
+        )])
+    
+    # Navigation buttons
+    buttons.append([
+        InlineKeyboardButton("⬅️ Назад", callback_data='back_step'),
+        InlineKeyboardButton("❌ Отмена", callback_data='cancel')
+    ])
+    
+    return InlineKeyboardMarkup(buttons)
