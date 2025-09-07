@@ -729,6 +729,11 @@ async def handle_admin_add_instruction(query, lang: str):
         await query.edit_message_text(get_text('access_denied', lang))
         return
     
+    user_id = query.from_user.id
+    user_states[user_id] = UserState('admin_add_instruction_title')
+    
+    logger.info(f"Admin {user_id} started adding instruction, state set to: admin_add_instruction_title")
+    
     await query.edit_message_text(
         get_text('instruction_title_prompt', lang),
         reply_markup=cancel_keyboard(lang)
@@ -872,6 +877,8 @@ async def handle_instruction_type_selection(query, instruction_type: str, lang: 
     user_id = query.from_user.id
     state = user_states[user_id]
     
+    logger.info(f"Admin {user_id} selected instruction type: '{instruction_type}'")
+    
     # Map type to enum
     type_mapping = {
         'pdf': 'pdf',
@@ -886,6 +893,8 @@ async def handle_instruction_type_selection(query, instruction_type: str, lang: 
     # Update state with type
     state.data['type'] = type_mapping[instruction_type]
     user_states[user_id] = UserState('admin_add_instruction_description', state.data)
+    
+    logger.info(f"Admin {user_id} state updated to: admin_add_instruction_description")
     
     await query.edit_message_text(
         get_text('instruction_description_prompt', lang),
@@ -1196,7 +1205,11 @@ async def handle_admin_add_instruction_title(update: Update, context: ContextTyp
     user_id = update.effective_user.id
     title = update.message.text
     
+    logger.info(f"Admin {user_id} entered instruction title: '{title}'")
+    
     user_states[user_id] = UserState('admin_add_instruction_type', {'title': title})
+    
+    logger.info(f"Admin {user_id} state updated to: admin_add_instruction_type")
     
     await update.message.reply_text(
         get_text('instruction_type_prompt', lang),
