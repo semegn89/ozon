@@ -20,6 +20,7 @@ from models import create_tables, get_session, InstructionType, TicketStatus, Me
 from services.models_service import ModelsService
 from services.files_service import FilesService
 from services.support_service import SupportService
+from services.instructions_service import InstructionsService
 from keyboards import *
 from texts import get_text
 
@@ -240,8 +241,27 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_admin_add_instruction(query, lang)
         elif data == 'admin_list_instructions':
             await handle_admin_list_instructions(query, lang)
-        elif data == 'admin_bind_instruction':
-            await handle_admin_bind_instruction(query, lang)
+        elif data.startswith('admin_instruction_'):
+            instruction_id = int(data.split('_')[2])
+            await handle_admin_instruction_management(query, instruction_id, lang)
+        elif data.startswith('bind_instruction_'):
+            instruction_id = int(data.split('_')[2])
+            await handle_bind_instruction_to_models(query, instruction_id, lang)
+        elif data.startswith('unbind_instruction_'):
+            instruction_id = int(data.split('_')[2])
+            await handle_unbind_instruction_from_models(query, instruction_id, lang)
+        elif data.startswith('select_model_'):
+            parts = data.split('_')
+            model_id = int(parts[2])
+            instruction_id = int(parts[3])
+            action = parts[4]
+            await handle_model_selection_for_instruction(query, model_id, instruction_id, action, lang)
+        elif data.startswith('confirm_bind_instruction_'):
+            instruction_id = int(data.split('_')[3])
+            await handle_confirm_bind_instruction(query, instruction_id, lang)
+        elif data.startswith('confirm_unbind_instruction_'):
+            instruction_id = int(data.split('_')[3])
+            await handle_confirm_unbind_instruction(query, instruction_id, lang)
         
         # Admin - Tickets
         elif data == 'admin_open_tickets':
@@ -747,8 +767,8 @@ async def handle_admin_list_instructions(query, lang: str):
     
     db = get_session()
     try:
-        files_service = FilesService(db)
-        instructions = files_service.get_instructions(page=0, limit=20)
+        instructions_service = InstructionsService(db)
+        instructions = instructions_service.get_instructions(page=0, limit=20)
         
         if not instructions:
             await query.edit_message_text(
@@ -757,32 +777,13 @@ async def handle_admin_list_instructions(query, lang: str):
             )
             return
         
-        text = "📄 Список инструкций:\n\n"
-        for instruction in instructions:
-            type_emoji = {
-                InstructionType.PDF: "📄",
-                InstructionType.VIDEO: "🎥",
-                InstructionType.LINK: "🔗"
-            }.get(instruction.type, "📄")
-            text += f"{type_emoji} {instruction.title}\n"
-        
         await query.edit_message_text(
-            text,
-            reply_markup=admin_instructions_keyboard(lang)
+            "📄 Выберите инструкцию для управления:",
+            reply_markup=admin_instructions_list_keyboard(instructions, lang)
         )
     finally:
         db.close()
 
-async def handle_admin_bind_instruction(query, lang: str):
-    """Handle admin bind instruction"""
-    if not is_admin(query.from_user.id):
-        await query.edit_message_text(get_text('access_denied', lang))
-        return
-    
-    await query.edit_message_text(
-        "Функция привязки инструкций к моделям будет реализована в следующей версии.",
-        reply_markup=admin_instructions_keyboard(lang)
-    )
 
 # Admin ticket handlers
 async def handle_admin_open_tickets(query, lang: str):
@@ -1319,6 +1320,252 @@ async def handle_admin_add_instruction_file(update: Update, context: ContextType
             "Ошибка при создании инструкции. Попробуйте еще раз.",
             reply_markup=admin_instructions_keyboard(lang)
         )
+    finally:
+        db.close()
+        if user_id in user_states:
+            del user_states[user_id]
+
+# ==================== INSTRUCTION MANAGEMENT HANDLERS ====================
+
+async def handle_admin_instruction_management(query, instruction_id: int, lang: str):
+    """Handle instruction management menu"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        instructions_service = InstructionsService(db)
+        instruction = instructions_service.get_instruction_by_id(instruction_id)
+        
+        if not instruction:
+            await query.edit_message_text(
+                "Инструкция не найдена.",
+                reply_markup=admin_instructions_keyboard(lang)
+            )
+            return
+        
+        # Get bound models
+        bound_models = instruction.models
+        bound_models_text = ""
+        if bound_models:
+            bound_models_text = f"\n\n🔗 Привязана к моделям:\n"
+            for model in bound_models:
+                bound_models_text += f"• {model.name}\n"
+        
+        text = f"📄 {instruction.title}\n"
+        text += f"📋 Тип: {instruction.type.value}\n"
+        if instruction.description:
+            text += f"📝 Описание: {instruction.description}\n"
+        text += bound_models_text
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=instruction_management_keyboard(instruction_id, lang)
+        )
+    finally:
+        db.close()
+
+async def handle_bind_instruction_to_models(query, instruction_id: int, lang: str):
+    """Handle binding instruction to models"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        instructions_service = InstructionsService(db)
+        models_service = ModelsService(db)
+        
+        instruction = instructions_service.get_instruction_by_id(instruction_id)
+        if not instruction:
+            await query.edit_message_text(
+                "Инструкция не найдена.",
+                reply_markup=admin_instructions_keyboard(lang)
+            )
+            return
+        
+        # Get all models
+        models = models_service.get_models(page=0, limit=100)
+        
+        if not models:
+            await query.edit_message_text(
+                "Модели не найдены.",
+                reply_markup=instruction_management_keyboard(instruction_id, lang)
+            )
+            return
+        
+        # Get already bound models
+        bound_model_ids = [model.id for model in instruction.models]
+        
+        await query.edit_message_text(
+            get_text('select_models_to_bind', lang, title=instruction.title),
+            reply_markup=models_selection_keyboard(models, instruction_id, 'bind', bound_model_ids, lang)
+        )
+    finally:
+        db.close()
+
+async def handle_unbind_instruction_from_models(query, instruction_id: int, lang: str):
+    """Handle unbinding instruction from models"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        instructions_service = InstructionsService(db)
+        
+        instruction = instructions_service.get_instruction_by_id(instruction_id)
+        if not instruction:
+            await query.edit_message_text(
+                "Инструкция не найдена.",
+                reply_markup=admin_instructions_keyboard(lang)
+            )
+            return
+        
+        # Get bound models
+        bound_models = instruction.models
+        
+        if not bound_models:
+            await query.edit_message_text(
+                "Инструкция не привязана ни к одной модели.",
+                reply_markup=instruction_management_keyboard(instruction_id, lang)
+            )
+            return
+        
+        await query.edit_message_text(
+            get_text('select_models_to_unbind', lang, title=instruction.title),
+            reply_markup=models_selection_keyboard(bound_models, instruction_id, 'unbind', [], lang)
+        )
+    finally:
+        db.close()
+
+async def handle_model_selection_for_instruction(query, model_id: int, instruction_id: int, action: str, lang: str):
+    """Handle model selection for instruction binding/unbinding"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    user_id = query.from_user.id
+    
+    # Initialize or get user state for model selection
+    if user_id not in user_states:
+        user_states[user_id] = UserState('model_selection', {
+            'instruction_id': instruction_id,
+            'action': action,
+            'selected_models': []
+        })
+    
+    state = user_states[user_id]
+    selected_models = state.data.get('selected_models', [])
+    
+    # Toggle model selection
+    if model_id in selected_models:
+        selected_models.remove(model_id)
+    else:
+        selected_models.append(model_id)
+    
+    state.data['selected_models'] = selected_models
+    user_states[user_id] = state
+    
+    # Update keyboard
+    db = get_session()
+    try:
+        if action == 'bind':
+            models_service = ModelsService(db)
+            models = models_service.get_models(page=0, limit=100)
+        else:  # unbind
+            instructions_service = InstructionsService(db)
+            instruction = instructions_service.get_instruction_by_id(instruction_id)
+            models = instruction.models if instruction else []
+        
+        await query.edit_message_reply_markup(
+            reply_markup=models_selection_keyboard(models, instruction_id, action, selected_models, lang)
+        )
+    finally:
+        db.close()
+
+async def handle_confirm_bind_instruction(query, instruction_id: int, lang: str):
+    """Handle confirmation of instruction binding"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    user_id = query.from_user.id
+    
+    if user_id not in user_states or user_states[user_id].state != 'model_selection':
+        await query.edit_message_text(
+            "Сессия истекла. Попробуйте снова.",
+            reply_markup=admin_instructions_keyboard(lang)
+        )
+        return
+    
+    state = user_states[user_id]
+    selected_models = state.data.get('selected_models', [])
+    
+    if not selected_models:
+        await query.answer("Выберите хотя бы одну модель.", show_alert=True)
+        return
+    
+    db = get_session()
+    try:
+        instructions_service = InstructionsService(db)
+        
+        success = instructions_service.bind_instruction_to_models(instruction_id, selected_models)
+        
+        if success:
+            await query.edit_message_text(
+                get_text('instruction_bound', lang),
+                reply_markup=instruction_management_keyboard(instruction_id, lang)
+            )
+        else:
+            await query.edit_message_text(
+                "Ошибка при привязке инструкции к моделям.",
+                reply_markup=instruction_management_keyboard(instruction_id, lang)
+            )
+    finally:
+        db.close()
+        if user_id in user_states:
+            del user_states[user_id]
+
+async def handle_confirm_unbind_instruction(query, instruction_id: int, lang: str):
+    """Handle confirmation of instruction unbinding"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    user_id = query.from_user.id
+    
+    if user_id not in user_states or user_states[user_id].state != 'model_selection':
+        await query.edit_message_text(
+            "Сессия истекла. Попробуйте снова.",
+            reply_markup=admin_instructions_keyboard(lang)
+        )
+        return
+    
+    state = user_states[user_id]
+    selected_models = state.data.get('selected_models', [])
+    
+    if not selected_models:
+        await query.answer("Выберите хотя бы одну модель.", show_alert=True)
+        return
+    
+    db = get_session()
+    try:
+        instructions_service = InstructionsService(db)
+        
+        success = instructions_service.unbind_instruction_from_models(instruction_id, selected_models)
+        
+        if success:
+            await query.edit_message_text(
+                get_text('instruction_unbound', lang),
+                reply_markup=instruction_management_keyboard(instruction_id, lang)
+            )
+        else:
+            await query.edit_message_text(
+                "Ошибка при отвязке инструкции от моделей.",
+                reply_markup=instruction_management_keyboard(instruction_id, lang)
+            )
     finally:
         db.close()
         if user_id in user_states:

@@ -134,7 +134,6 @@ def admin_instructions_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     buttons = [
         [InlineKeyboardButton(get_text('add_instruction', lang), callback_data='admin_add_instruction')],
         [InlineKeyboardButton("📋 Список инструкций", callback_data='admin_list_instructions')],
-        [InlineKeyboardButton(get_text('bind_to_models', lang), callback_data='admin_bind_instruction')],
         [InlineKeyboardButton(get_text('back', lang), callback_data='admin')]
     ]
     return InlineKeyboardMarkup(buttons)
@@ -188,4 +187,64 @@ def language_keyboard() -> InlineKeyboardMarkup:
 def cancel_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     """Simple cancel keyboard"""
     buttons = [[InlineKeyboardButton(get_text('cancel', lang), callback_data='cancel')]]
+    return InlineKeyboardMarkup(buttons)
+
+def admin_instructions_list_keyboard(instructions: List[Instruction], lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Admin instructions list keyboard"""
+    buttons = []
+    
+    for instruction in instructions:
+        # Add type emoji
+        type_emoji = {
+            InstructionType.PDF: "📄",
+            InstructionType.VIDEO: "🎥",
+            InstructionType.LINK: "🔗"
+        }.get(instruction.type, "📄")
+        
+        buttons.append([InlineKeyboardButton(
+            f"{type_emoji} {instruction.title}",
+            callback_data=f'admin_instruction_{instruction.id}'
+        )])
+    
+    buttons.append([InlineKeyboardButton(get_text('back', lang), callback_data='admin_instructions')])
+    return InlineKeyboardMarkup(buttons)
+
+def instruction_management_keyboard(instruction_id: int, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Instruction management keyboard for admin"""
+    buttons = [
+        [InlineKeyboardButton(get_text('bind_to_models', lang), callback_data=f'bind_instruction_{instruction_id}')],
+        [InlineKeyboardButton(get_text('unbind_from_models', lang), callback_data=f'unbind_instruction_{instruction_id}')],
+        [InlineKeyboardButton("✏️ Редактировать", callback_data=f'edit_instruction_{instruction_id}')],
+        [InlineKeyboardButton("🗑 Удалить", callback_data=f'delete_instruction_{instruction_id}')],
+        [InlineKeyboardButton(get_text('back', lang), callback_data='admin_list_instructions')]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+def models_selection_keyboard(models: List[Model], instruction_id: int, action: str, 
+                             selected_models: List[int] = None, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Models selection keyboard for binding/unbinding instructions"""
+    if selected_models is None:
+        selected_models = []
+    
+    buttons = []
+    
+    for model in models:
+        # Check if model is selected
+        is_selected = model.id in selected_models
+        prefix = "✅" if is_selected else "⬜"
+        
+        buttons.append([InlineKeyboardButton(
+            f"{prefix} {model.name}",
+            callback_data=f'select_model_{model.id}_{instruction_id}_{action}'
+        )])
+    
+    # Add action buttons
+    if selected_models:
+        action_text = get_text('bind_instruction_to_models', lang) if action == 'bind' else get_text('unbind_from_models', lang)
+        buttons.append([InlineKeyboardButton(
+            f"{action_text} ({len(selected_models)})",
+            callback_data=f'confirm_{action}_instruction_{instruction_id}'
+        )])
+    
+    buttons.append([InlineKeyboardButton(get_text('cancel', lang), callback_data='admin_list_instructions')])
     return InlineKeyboardMarkup(buttons)

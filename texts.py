@@ -74,8 +74,15 @@ TEXTS = {
         'instruction_created': "Инструкция '{title}' создана!",
         'instruction_updated': "Инструкция '{title}' обновлена!",
         'instruction_deleted': "Инструкция '{title}' удалена!",
-        'bind_to_models': "Привязать к моделям",
+        'bind_to_models': "🔗 Привязать к моделям",
         'instruction_bound': "Инструкция привязана к моделям!",
+        'select_models_to_bind': "Выберите модели для привязки инструкции '{title}':",
+        'instruction_already_bound': "Инструкция уже привязана к выбранным моделям.",
+        'models_selected': "Выбрано моделей: {count}",
+        'bind_instruction_to_models': "Привязать к моделям",
+        'unbind_from_models': "🔓 Отвязать от моделей",
+        'instruction_unbound': "Инструкция отвязана от моделей!",
+        'select_models_to_unbind': "Выберите модели для отвязки инструкции '{title}':",
         
         # Admin - Tickets
         'open_tickets': "Открытые обращения",
@@ -177,8 +184,15 @@ TEXTS = {
         'instruction_created': "Instruction '{title}' created!",
         'instruction_updated': "Instruction '{title}' updated!",
         'instruction_deleted': "Instruction '{title}' deleted!",
-        'bind_to_models': "Bind to Models",
+        'bind_to_models': "🔗 Bind to Models",
         'instruction_bound': "Instruction bound to models!",
+        'select_models_to_bind': "Select models to bind instruction '{title}' to:",
+        'instruction_already_bound': "Instruction is already bound to selected models.",
+        'models_selected': "Models selected: {count}",
+        'bind_instruction_to_models': "Bind to Models",
+        'unbind_from_models': "🔓 Unbind from Models",
+        'instruction_unbound': "Instruction unbound from models!",
+        'select_models_to_unbind': "Select models to unbind instruction '{title}' from:",
         
         # Admin - Tickets
         'open_tickets': "Open Tickets",
