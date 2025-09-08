@@ -49,7 +49,8 @@ def is_admin(user_id: int) -> bool:
 
 def get_user_lang(user_id: int) -> str:
     """Get user language (default: ru)"""
-    # TODO: Implement language preference storage
+    # For now, return 'ru' as default
+    # TODO: Implement language preference storage in database
     return 'ru'
 
 def signal_handler(signum, frame):
@@ -59,8 +60,13 @@ def signal_handler(signum, frame):
     if application_instance:
         try:
             # Stop the application gracefully
-            asyncio.create_task(application_instance.stop())
-            asyncio.create_task(application_instance.shutdown())
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(application_instance.stop())
+                loop.create_task(application_instance.shutdown())
+            else:
+                # If no event loop is running, just set the shutdown event
+                logger.info("No event loop running, shutdown event set")
         except Exception as e:
             logger.error(f"Error during shutdown: {e}")
     sys.exit(0)
@@ -342,7 +348,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.edit_message_text(
                     get_text('main_menu', lang),
                     reply_markup=main_menu_keyboard(lang)
-                )
+            )
         
     except Exception as e:
         logger.error(f"Error in button_callback: {e}")
@@ -1177,8 +1183,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "Пожалуйста, используйте меню для навигации.",
                 reply_markup=main_menu_keyboard(lang)
-            )
-            return
+        )
+        return
     
     state = user_states[user.id]
     logger.info(f"User {user.id} state: {state.state}")
@@ -1477,11 +1483,11 @@ async def handle_admin_add_instruction_file_wait(update: Update, context: Contex
         logger.info(f"Admin {user_id} sent photo, size: {file_size}")
     else:
         # User sent text instead of file
-        await update.message.reply_text(
+            await update.message.reply_text(
             "Пожалуйста, пришлите файл. Для отмены — нажмите ❌ Отмена.",
             reply_markup=back_cancel_keyboard(lang)
-        )
-        return
+            )
+            return
         
     # Check file size (20 MB limit)
     if file_size > 20 * 1024 * 1024:  # 20 MB in bytes
@@ -1586,8 +1592,8 @@ async def handle_admin_add_instruction_description(update: Update, context: Cont
         if not models:
             await update.message.reply_text(
                 "Нет доступных моделей для привязки. Сначала создайте модели.",
-            reply_markup=admin_instructions_keyboard(lang)
-        )
+                reply_markup=admin_instructions_keyboard(lang)
+            )
             if user_id in user_states:
                 del user_states[user_id]
             return
@@ -1961,8 +1967,8 @@ async def handle_admin_instruction_management(query, instruction_id: int, lang: 
         if not instruction:
             await query.edit_message_text(
                 "Инструкция не найдена.",
-            reply_markup=admin_instructions_keyboard(lang)
-        )
+                reply_markup=admin_instructions_keyboard(lang)
+            )
             return
         
         # Get bound models
@@ -2221,20 +2227,32 @@ async def healthcheck_handler(request):
 
 def start_healthcheck_server():
     """Start simple HTTP server for healthcheck"""
-    app = web.Application()
-    app.router.add_get('/health', healthcheck_handler)
-    app.router.add_get('/', healthcheck_handler)
+    try:
+        app = web.Application()
+        app.router.add_get('/health', healthcheck_handler)
+        app.router.add_get('/', healthcheck_handler)
+        
+        runner = web.AppRunner(app)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     
-    runner = web.AppRunner(app)
-    asyncio.set_event_loop(asyncio.new_event_loop())
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(runner.setup())
-    
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
-    loop.run_until_complete(site.start())
-    
-    logger.info("Healthcheck server started on port 8080")
-    loop.run_forever()
+        async def run_server():
+            await runner.setup()
+            site = web.TCPSite(runner, '0.0.0.0', 8080)
+            await site.start()
+            logger.info("Healthcheck server started on port 8080")
+                    
+            # Keep the server running until shutdown
+            try:
+                while not shutdown_event.is_set():
+                    await asyncio.sleep(1)
+            finally:
+                await runner.cleanup()
+                logger.info("Healthcheck server stopped")
+        
+        loop.run_until_complete(run_server())
+    except Exception as e:
+        logger.error(f"Healthcheck server error: {e}")
 
 # ==================== MAIN FUNCTION ====================
 
