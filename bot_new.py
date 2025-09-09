@@ -345,9 +345,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=admin_menu_keyboard(lang)
                 )
             else:
-                await query.edit_message_text(
-                    get_text('main_menu', lang),
-                    reply_markup=main_menu_keyboard(lang)
+            await query.edit_message_text(
+                get_text('main_menu', lang),
+                reply_markup=main_menu_keyboard(lang)
             )
         
     except Exception as e:
@@ -1180,9 +1180,9 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_admin_add_instruction_title(update, context, lang)
             return
         else:
-            await update.message.reply_text(
-                "Пожалуйста, используйте меню для навигации.",
-                reply_markup=main_menu_keyboard(lang)
+        await update.message.reply_text(
+            "Пожалуйста, используйте меню для навигации.",
+            reply_markup=main_menu_keyboard(lang)
         )
         return
     
@@ -1462,26 +1462,26 @@ async def handle_admin_add_instruction_file_wait(update: Update, context: Contex
     logger.info(f"Admin {user_id} in handle_admin_add_instruction_file_wait")
         
     # Check if user sent a file
-    tg_file_id = None
+        tg_file_id = None
     file_size = 0
     file_name = ""
-    
-    if update.message.document:
-        tg_file_id = update.message.document.file_id
+        
+        if update.message.document:
+            tg_file_id = update.message.document.file_id
         file_size = update.message.document.file_size or 0
         file_name = update.message.document.file_name or "document"
         logger.info(f"Admin {user_id} sent document: {file_name}, size: {file_size}")
-    elif update.message.video:
-        tg_file_id = update.message.video.file_id
+        elif update.message.video:
+            tg_file_id = update.message.video.file_id
         file_size = update.message.video.file_size or 0
         file_name = update.message.video.file_name or "video"
         logger.info(f"Admin {user_id} sent video: {file_name}, size: {file_size}")
-    elif update.message.photo:
-        tg_file_id = update.message.photo[-1].file_id
+        elif update.message.photo:
+            tg_file_id = update.message.photo[-1].file_id
         file_size = update.message.photo[-1].file_size or 0
         file_name = "photo.jpg"  # Photos don't have file names
         logger.info(f"Admin {user_id} sent photo, size: {file_size}")
-    else:
+        else:
         # User sent text instead of file
             await update.message.reply_text(
             "Пожалуйста, пришлите файл. Для отмены — нажмите ❌ Отмена.",
@@ -2228,19 +2228,19 @@ async def healthcheck_handler(request):
 def start_healthcheck_server():
     """Start simple HTTP server for healthcheck"""
     try:
-        app = web.Application()
-        app.router.add_get('/health', healthcheck_handler)
-        app.router.add_get('/', healthcheck_handler)
-        
-        runner = web.AppRunner(app)
+    app = web.Application()
+    app.router.add_get('/health', healthcheck_handler)
+    app.router.add_get('/', healthcheck_handler)
+    
+    runner = web.AppRunner(app)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     
         async def run_server():
             await runner.setup()
-            site = web.TCPSite(runner, '0.0.0.0', 8080)
+    site = web.TCPSite(runner, '0.0.0.0', 8080)
             await site.start()
-            logger.info("Healthcheck server started on port 8080")
+    logger.info("Healthcheck server started on port 8080")
                     
             # Keep the server running until shutdown
             try:
@@ -2292,15 +2292,15 @@ def main():
     
     # Start bot with conflict handling
     try:
-        if MODE == 'WEBHOOK' and WEBHOOK_URL:
-            logger.info("Starting bot in webhook mode...")
-            application.run_webhook(
-                listen="0.0.0.0",
-                port=8443,
-                webhook_url=WEBHOOK_URL
-            )
-        else:
-            logger.info("Starting bot in polling mode...")
+    if MODE == 'WEBHOOK' and WEBHOOK_URL:
+        logger.info("Starting bot in webhook mode...")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=8443,
+            webhook_url=WEBHOOK_URL
+        )
+    else:
+        logger.info("Starting bot in polling mode...")
             # Add a small delay to avoid immediate conflicts
             time.sleep(2)
             application.run_polling(
