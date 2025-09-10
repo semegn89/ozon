@@ -140,8 +140,8 @@ async def models_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=main_menu_keyboard(lang)
             )
             return
-
-            await update.message.reply_text(
+        
+        await update.message.reply_text(
             get_text('models_list', lang),
             reply_markup=models_keyboard(models, 0, total_pages, lang)
         )
@@ -163,8 +163,8 @@ async def my_tickets_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 reply_markup=main_menu_keyboard(lang)
             )
             return
-
-            await update.message.reply_text(
+        
+        await update.message.reply_text(
             get_text('tickets_list', lang),
             reply_markup=tickets_keyboard(tickets, lang)
         )
@@ -178,7 +178,7 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(user.id):
         await update.message.reply_text(get_text('access_denied', lang))
         return
-
+    
         # Check if admin is in the middle of creating something
     if user.id in user_states:
         state = user_states[user.id]
@@ -195,8 +195,8 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=keyboard
             )
         return
-
-        await update.message.reply_text(
+    
+    await update.message.reply_text(
         get_text('admin_menu', lang),
         reply_markup=admin_menu_keyboard(lang)
     )
@@ -429,20 +429,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Return to appropriate menu based on user type
             if is_admin(query.from_user.id):
                 await query.edit_message_text(
-
                     get_text('admin_menu', lang),
                     reply_markup=admin_menu_keyboard(lang)
                 )
             else:
-
                 await query.edit_message_text(
-
-
                     get_text('main_menu', lang),
-                reply_markup=main_menu_keyboard(lang)
-            )
+                    reply_markup=main_menu_keyboard(lang)
+                )
     except Exception as e:
-
         logger.error(f"Error in button_callback: {e}")
         logger.error(f"User ID: {user.id}")
         logger.error(f"Callback data: {data}")
@@ -477,11 +472,11 @@ async def handle_choose_model(query, lang: str):
                 reply_markup=main_menu_keyboard(lang)
             )
             return
+        
+        await query.edit_message_text(
 
-            await query.edit_message_text(
 
-
-                get_text('models_list', lang),
+            get_text('models_list', lang),
             reply_markup=models_keyboard(models, 0, total_pages, lang)
         )
     finally:
@@ -590,21 +585,18 @@ async def handle_instructions(query, lang: str):
         logger.info(f"Visible model IDs for instructions: {visible_model_ids}")
         
         if not models:
-
-        
             await query.edit_message_text(
                 "Инструкции\n\nПока нет моделей с инструкциями.\nАдминистратор может добавить модели и инструкции.",
                 reply_markup=main_menu_keyboard(lang)
             )
         else:
-
             await query.edit_message_text(
                 "📄 Выберите модель для просмотра инструкций:",
                 reply_markup=models_keyboard(models, 0, total_pages, lang)
             )
     finally:
-
         db.close()
+
 async def handle_model_instructions(query, model_id: int, lang: str):
     """Handle model instructions"""
     db = get_session()
@@ -626,11 +618,11 @@ async def handle_model_instructions(query, model_id: int, lang: str):
                 reply_markup=model_options_keyboard(model_id, lang)
             )
             return
+        
+        await query.edit_message_text(
 
-            await query.edit_message_text(
 
-
-                get_text('instructions_list', lang, model_name=model.name),
+            get_text('instructions_list', lang, model_name=model.name),
             reply_markup=instructions_keyboard(instructions, model_id, lang),
             parse_mode='HTML'
         )
@@ -650,33 +642,29 @@ async def handle_instruction_selected(query, context: ContextTypes.DEFAULT_TYPE,
             logger.warning(f"Instruction with ID {instruction_id} not found")
             await query.answer(get_text('instruction_unavailable', lang), show_alert=True)
             return
-
-            # Send instruction based on type
+        
+        # Send instruction based on type
         if instruction.tg_file_id:
-                    if instruction.type == InstructionType.PDF:
-                        await context.bot.send_document(
-
+            if instruction.type == InstructionType.PDF:
+                await context.bot.send_document(
                     chat_id=query.message.chat.id,
                     document=instruction.tg_file_id,
                     caption=instruction.description or instruction.title
                 )
             elif instruction.type == InstructionType.VIDEO:
                 await context.bot.send_video(
-
                     chat_id=query.message.chat.id,
                     video=instruction.tg_file_id,
                     caption=instruction.description or instruction.title
                 )
             else:
                 await context.bot.send_document(
-
                     chat_id=query.message.chat.id,
                     document=instruction.tg_file_id,
                     caption=instruction.description or instruction.title
                 )
         elif instruction.url:
             await safe_send_message(
-
                 context.bot,
                 chat_id=query.message.chat.id,
                 text=f"🔗 {instruction.title}\n\n{instruction.description or ''}\n\n{instruction.url}"
@@ -695,51 +683,44 @@ async def handle_download_package(query, context: ContextTypes.DEFAULT_TYPE, mod
         if not model or not model.instructions:
             await query.answer("Нет инструкций для скачивания.", show_alert=True)
             return
-
+        
             # Send all instructions with rate limiting
         for i, instruction in enumerate(model.instructions):
             try:
-
                 if instruction.tg_file_id:
-                if instruction.type == InstructionType.PDF:
+                    if instruction.type == InstructionType.PDF:
                         await context.bot.send_document(
-
                             chat_id=query.message.chat.id,
-                        document=instruction.tg_file_id,
-                        caption=instruction.title
+                            document=instruction.tg_file_id,
+                            caption=instruction.title
                     )
-                elif instruction.type == InstructionType.VIDEO:
+                    elif instruction.type == InstructionType.VIDEO:
                         await context.bot.send_video(
-
                             chat_id=query.message.chat.id,
-                        video=instruction.tg_file_id,
-                        caption=instruction.title
-                    )
-                else:
+                            video=instruction.tg_file_id,
+                            caption=instruction.title
+                        )
+                    else:
                         await context.bot.send_document(
-
                             chat_id=query.message.chat.id,
-                        document=instruction.tg_file_id,
-                        caption=instruction.title
-                    )
-            elif instruction.url:
+                            document=instruction.tg_file_id,
+                            caption=instruction.title
+                        )
+                elif instruction.url:
                     await safe_send_message(
-
                         context.bot,
                         chat_id=query.message.chat.id,
-                    text=f"🔗 {instruction.title}\n{instruction.url}"
-                )
-                    # Add small delay between sends to avoid rate limiting
-                    if i < len(model.instructions) - 1:  # Don't delay after last item
-                        await asyncio.sleep(0.3)
+                        text=f"🔗 {instruction.title}\n{instruction.url}"
+                    )
+                # Add small delay between sends to avoid rate limiting
+                if i < len(model.instructions) - 1:  # Don't delay after last item
+                    await asyncio.sleep(0.3)
             except Exception as e:
-
                 logger.error(f"Error sending instruction {instruction.id}: {e}")
                 # Continue with next instruction
                 continue
         await query.answer(get_text('package_sent', lang))
     finally:
-
         db.close()
 # ==================== SUPPORT HANDLERS ====================
 async def handle_support(query, lang: str):
@@ -764,20 +745,17 @@ async def handle_support(query, lang: str):
             # Create new ticket
             user_states[user_id] = UserState('support_waiting')
             logger.info(f"User {user_id} state updated to: support_waiting")
-    await query.edit_message_text(
-
-        get_text('support_question', lang),
-        reply_markup=cancel_keyboard(lang)
-    )
+            await query.edit_message_text(
+                get_text('support_question', lang),
+                reply_markup=cancel_keyboard(lang)
+            )
     except Exception as e:
-
         logger.error(f"Error in handle_support: {e}")
         await query.edit_message_text(
             "Произошла ошибка. Попробуйте позже.",
             reply_markup=main_menu_keyboard(lang)
         )
     finally:
-
         db.close()
 
 async def show_user_ticket(query, ticket, support_service, lang: str):
@@ -835,7 +813,7 @@ async def handle_support_model(query, model_id: int, lang: str):
         model = models_service.get_model_by_id(model_id)
         model_name = model.name if model else f"модели #{model_id}"
     finally:
-
+    
         db.close()
     await query.edit_message_text(
         f"Опишите ваш вопрос по модели {model_name} или прикрепите фото/видео:",
@@ -856,11 +834,11 @@ async def handle_my_tickets(query, lang: str):
                 reply_markup=main_menu_keyboard(lang)
             )
             return
+        
+        await query.edit_message_text(
 
-            await query.edit_message_text(
 
-
-                get_text('tickets_list', lang),
+            get_text('tickets_list', lang),
             reply_markup=tickets_keyboard(tickets, lang)
         )
     finally:
@@ -982,11 +960,11 @@ async def handle_admin_menu(query, lang: str):
     if not is_admin(query.from_user.id):
         await query.edit_message_text(get_text('access_denied', lang))
         return
+    
+    await query.edit_message_text(
 
-        await query.edit_message_text(
 
-
-            get_text('admin_menu', lang),
+        get_text('admin_menu', lang),
         reply_markup=admin_menu_keyboard(lang)
     )
 async def handle_admin_models(query, lang: str):
@@ -994,8 +972,8 @@ async def handle_admin_models(query, lang: str):
     if not is_admin(query.from_user.id):
         await query.edit_message_text(get_text('access_denied', lang))
         return
-
-        await query.edit_message_text(
+    
+    await query.edit_message_text(
         "Управление моделями:",
         reply_markup=admin_models_keyboard(lang)
     )
@@ -1004,8 +982,8 @@ async def handle_admin_instructions(query, lang: str):
     if not is_admin(query.from_user.id):
         await query.edit_message_text(get_text('access_denied', lang))
         return
-
-        await query.edit_message_text(
+    
+    await query.edit_message_text(
         "Управление инструкциями:",
         reply_markup=admin_instructions_keyboard(lang)
     )
@@ -1026,8 +1004,8 @@ async def handle_admin_tickets(query, lang: str):
     if not is_admin(query.from_user.id):
         await query.edit_message_text(get_text('access_denied', lang))
         return
-
-        await query.edit_message_text(
+    
+    await query.edit_message_text(
         "Управление обращениями:",
         reply_markup=admin_tickets_keyboard(lang)
     )
@@ -1257,8 +1235,8 @@ async def handle_admin_edit_model(query, lang: str):
     if not is_admin(query.from_user.id):
         await query.edit_message_text(get_text('access_denied', lang))
         return
-
-        # Show models list for editing
+    
+    # Show models list for editing
     db = get_session()
     try:
 
@@ -1278,8 +1256,8 @@ async def handle_admin_delete_model(query, lang: str):
     if not is_admin(query.from_user.id):
         await query.edit_message_text(get_text('access_denied', lang))
         return
-
-        # Show models list for deletion
+    
+    # Show models list for deletion
     db = get_session()
     try:
 
@@ -1323,8 +1301,8 @@ async def handle_admin_list_instructions(query, lang: str):
                 reply_markup=admin_instructions_keyboard(lang)
             )
             return
-
-            await query.edit_message_text(
+        
+        await query.edit_message_text(
             "📄 Выберите инструкцию для управления:",
             reply_markup=admin_instructions_list_keyboard(instructions, lang)
         )
@@ -1394,8 +1372,8 @@ async def handle_confirmation(query, action: str, lang: str):
     if not is_admin(query.from_user.id):
         await query.edit_message_text(get_text('access_denied', lang))
         return
-
-        # TODO: Implement confirmation logic
+    
+    # TODO: Implement confirmation logic
     await query.edit_message_text(
         f"Подтверждение для действия: {action}",
         reply_markup=admin_menu_keyboard(lang)
@@ -1756,11 +1734,11 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_admin_add_instruction_title(update, context, lang)
             return
         else:
-        await update.message.reply_text(
-            "Пожалуйста, используйте меню для навигации.",
-            reply_markup=main_menu_keyboard(lang)
-        )
-        return
+            await update.message.reply_text(
+                "Пожалуйста, используйте меню для навигации.",
+                reply_markup=main_menu_keyboard(lang)
+            )
+            return
     state = user_states[user.id]
     logger.info(f"User {user.id} state: {state.state}")
     try:
@@ -1793,7 +1771,7 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
     user = update.effective_user
     db = get_session()
     try:
-
+        
         support_service = SupportService(db)
         # Create ticket
         ticket = support_service.create_ticket(
@@ -1815,7 +1793,7 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
             try:
                 await safe_send_message(context.bot, chat_id=admin_id, text=admin_text)
             except TelegramError as e:
-
+        
                 logger.error(f"Failed to send message to admin {admin_id}: {e}")
         await update.message.reply_text(
             get_text('support_sent', lang, ticket_id=ticket.id),
@@ -1859,7 +1837,7 @@ async def handle_support_model_message(update: Update, context: ContextTypes.DEF
             try:
                 await safe_send_message(context.bot, chat_id=admin_id, text=admin_text)
             except TelegramError as e:
-
+        
                 logger.error(f"Failed to send message to admin {admin_id}: {e}")
         await update.message.reply_text(
             get_text('support_sent', lang, ticket_id=ticket.id),
@@ -1940,8 +1918,8 @@ async def handle_search_message(update: Update, context: ContextTypes.DEFAULT_TY
                 reply_markup=main_menu_keyboard(lang)
             )
             return
-
-            await update.message.reply_text(
+        
+        await update.message.reply_text(
             get_text('search_results', lang, query=query_text),
             reply_markup=models_keyboard(models, 0, total_pages, lang)
         )
@@ -2165,23 +2143,23 @@ async def handle_admin_add_instruction_description(update: Update, context: Cont
         models_service = ModelsService(db)
         models = models_service.get_models(page=0, limit=100)
         if not models:
-    await update.message.reply_text(
+            await update.message.reply_text(
                 "Нет доступных моделей для привязки. Сначала создайте модели.",
-            reply_markup=admin_instructions_keyboard(lang)
-        )
+                reply_markup=admin_instructions_keyboard(lang)
+            )
             if user_id in user_states:
                 del user_states[user_id]
             return
 
-            await update.message.reply_text(
+        await update.message.reply_text(
             "✅ Описание сохранено!\n\n"
             "🔗 Выберите модели для привязки инструкции:\n\n"
             "Что дальше: Выберите модели → подтверждение → сохранение",
             reply_markup=new_instruction_models_keyboard(models, [], 0, lang)
         )
     finally:
-
         db.close()
+
 async def handle_admin_add_instruction_bind(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
     """Handle admin add instruction model binding"""
     if not is_admin(update.effective_user.id):
@@ -2249,33 +2227,33 @@ async def handle_admin_add_recipe_file_wait(update: Update, context: ContextType
     state = user_states[user_id]
     logger.info(f"Admin {user_id} in handle_admin_add_recipe_file_wait")
     # Check if user sent a file
-        tg_file_id = None
+    tg_file_id = None
     file_size = 0
     file_name = ""
-        if update.message.document:
-            tg_file_id = update.message.document.file_id
+    if update.message.document:
+        tg_file_id = update.message.document.file_id
         file_size = update.message.document.file_size or 0
         file_name = update.message.document.file_name or "document"
         logger.info(f"Admin {user_id} sent document: {file_name}, size: {file_size}")
-        elif update.message.video:
-            tg_file_id = update.message.video.file_id
+    elif update.message.video:
+        tg_file_id = update.message.video.file_id
         file_size = update.message.video.file_size or 0
         file_name = update.message.video.file_name or "video"
         logger.info(f"Admin {user_id} sent video: {file_name}, size: {file_size}")
-        elif update.message.photo:
-            tg_file_id = update.message.photo[-1].file_id
+    elif update.message.photo:
+        tg_file_id = update.message.photo[-1].file_id
         file_size = update.message.photo[-1].file_size or 0
         file_name = "photo.jpg"  # Photos don't have file names
         logger.info(f"Admin {user_id} sent photo, size: {file_size}")
-        else:
+    else:
         # User sent text instead of file
-            await update.message.reply_text(
+        await update.message.reply_text(
             "Пожалуйста, пришлите файл. Для отмены — нажмите ❌ Отмена.",
             reply_markup=back_cancel_keyboard(lang)
-            )
-            return
+        )
+        return
 
-            # Check file size (20 MB limit)
+    # Check file size (20 MB limit)
     if file_size > 20 * 1024 * 1024:  # 20 MB in bytes
         await update.message.reply_text(
             "Файл слишком большой (больше 20 MB). Загрузите через облако и используйте ссылку.",
@@ -2342,25 +2320,23 @@ async def handle_admin_add_recipe_description(update: Update, context: ContextTy
         models_service = ModelsService(db)
         models = models_service.get_models(page=0, limit=10)
         if not models:
-        await update.message.reply_text(
+            await update.message.reply_text(
                 "Нет доступных моделей. Рецепт будет создан без привязки к моделям.",
                 reply_markup=back_cancel_keyboard(lang)
             )
             return
 
-            await update.message.reply_text(
+        await update.message.reply_text(
             "Выберите модели для привязки рецепта:",
             reply_markup=new_recipe_models_keyboard(models, [], 0, lang)
         )
     except Exception as e:
-
         logger.error(f"Error in handle_admin_add_recipe_description: {e}")
         await update.message.reply_text(
             "Ошибка при загрузке моделей.",
             reply_markup=back_cancel_keyboard(lang)
         )
     finally:
-
         db.close()
 
 async def handle_admin_add_recipe_bind(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
@@ -2785,8 +2761,8 @@ async def handle_exit_master(query, lang: str):
         return
     user_id = query.from_user.id
     # Clear user state
-        if user_id in user_states:
-            del user_states[user_id]
+    if user_id in user_states:
+        del user_states[user_id]
     logger.info(f"Admin {user_id} exited master")
     await query.edit_message_text(
         "✅ Мастер создания инструкции отменен.\n\n"
@@ -3118,20 +3094,18 @@ async def healthcheck_handler(request):
 def start_healthcheck_server():
     """Start simple HTTP server for healthcheck"""
     try:
-
         app = web.Application()
-    app.router.add_get('/health', healthcheck_handler)
-    app.router.add_get('/', healthcheck_handler)
-    runner = web.AppRunner(app)
+        app.router.add_get('/health', healthcheck_handler)
+        app.router.add_get('/', healthcheck_handler)
+        runner = web.AppRunner(app)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         # Setup and start server
-    loop.run_until_complete(runner.setup())
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
-    loop.run_until_complete(site.start())
-    logger.info("Healthcheck server started on port 8080")
+        loop.run_until_complete(runner.setup())
+        site = web.TCPSite(runner, '0.0.0.0', 8080)
+        loop.run_until_complete(site.start())
+        logger.info("Healthcheck server started on port 8080")
         # Keep server running until shutdown
-
         try:
             while not shutdown_event.is_set():
                 loop.run_until_complete(asyncio.sleep(1))
@@ -3885,32 +3859,28 @@ def main():
     # Start bot with conflict handling
     logger.info("🚀 Starting main bot application...")
     try:
-
-        if MODE == \'WEBHOOK\' and WEBHOOK_URL:
+    
+        if MODE == 'WEBHOOK' and WEBHOOK_URL:
             logger.info("🌐 Starting bot in webhook mode...")
-        application.run_webhook(
-
-            listen="0.0.0.0",
-            port=8443,
-            webhook_url=WEBHOOK_URL
-        )
-    else:
+            application.run_webhook(
+                listen="0.0.0.0",
+                port=8443,
+                webhook_url=WEBHOOK_URL
+            )
+        else:
             logger.info("📡 Starting bot in polling mode...")
             # Add a small delay to avoid immediate conflicts
             time.sleep(2)
             application.run_polling(
-
                 drop_pending_updates=True,
                 allowed_updates=None,
                 close_loop=False
             )
     except Conflict as e:
- logger.error(f"Bot conflict detected: {e}")
+        logger.error(f"Bot conflict detected: {e}")
         logger.info("Attempting to clear webhook and restart...")
         # Clear webhook and try again
-
         import requests
-
 
         try:
             clear_url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
