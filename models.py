@@ -35,6 +35,15 @@ model_instruction = Table(
     Column('instruction_id', Integer, ForeignKey('instructions.id'))
 )
 
+# Many-to-many relationship between models and recipes
+model_recipe = Table(
+    'model_recipe',
+    Base.metadata,
+    Column('id', Integer, primary_key=True),
+    Column('model_id', Integer, ForeignKey('models.id')),
+    Column('recipe_id', Integer, ForeignKey('recipes.id'))
+)
+
 class Model(Base):
     __tablename__ = 'models'
     
@@ -47,6 +56,7 @@ class Model(Base):
     
     # Relationships
     instructions = relationship("Instruction", secondary=model_instruction, back_populates="models")
+    recipes = relationship("Recipe", secondary=model_recipe, back_populates="models")
     
     def __repr__(self):
         return f"<Model(id={self.id}, name='{self.name}')>"
@@ -68,6 +78,24 @@ class Instruction(Base):
     
     def __repr__(self):
         return f"<Instruction(id={self.id}, title='{self.title}', type='{self.type.value}')>"
+
+class Recipe(Base):
+    __tablename__ = 'recipes'
+    
+    id = Column(Integer, primary_key=True)
+    title = Column(String(255), nullable=False)
+    type = Column(Enum(InstructionType), nullable=False)  # Reuse InstructionType enum
+    description = Column(Text)
+    tg_file_id = Column(String(255))  # Telegram file ID
+    url = Column(String(500))  # External URL
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    models = relationship("Model", secondary=model_recipe, back_populates="recipes")
+    
+    def __repr__(self):
+        return f"<Recipe(id={self.id}, title='{self.title}', type='{self.type.value}')>"
 
 class Ticket(Base):
     __tablename__ = 'tickets'

@@ -9,6 +9,7 @@ def main_menu_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     buttons = [
         [InlineKeyboardButton(get_text('choose_model', lang), callback_data='choose_model')],
         [InlineKeyboardButton(get_text('instructions', lang), callback_data='instructions')],
+        [InlineKeyboardButton(get_text('recipes', lang), callback_data='recipes')],
         [InlineKeyboardButton(get_text('support', lang), callback_data='support')],
         [InlineKeyboardButton(get_text('my_tickets', lang), callback_data='my_tickets')],
     ]
@@ -175,6 +176,7 @@ def admin_menu_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     buttons = [
         [InlineKeyboardButton(get_text('admin_models', lang), callback_data='admin_models')],
         [InlineKeyboardButton(get_text('admin_instructions', lang), callback_data='admin_instructions')],
+        [InlineKeyboardButton(get_text('admin_recipes', lang), callback_data='admin_recipes')],
         [InlineKeyboardButton(get_text('admin_tickets', lang), callback_data='admin_tickets')],
         [InlineKeyboardButton(get_text('admin_settings', lang), callback_data='admin_settings')],
         [InlineKeyboardButton(get_text('back_to_menu', lang), callback_data='main_menu')]
@@ -196,6 +198,15 @@ def admin_instructions_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     buttons = [
         [InlineKeyboardButton(get_text('add_instruction', lang), callback_data='admin_add_instruction')],
         [InlineKeyboardButton("📋 Список инструкций", callback_data='admin_list_instructions')],
+        [InlineKeyboardButton(get_text('back', lang), callback_data='admin')]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+def admin_recipes_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Admin recipes management keyboard"""
+    buttons = [
+        [InlineKeyboardButton(get_text('add_recipe', lang), callback_data='admin_add_recipe')],
+        [InlineKeyboardButton(get_text('list_recipes', lang), callback_data='admin_list_recipes')],
         [InlineKeyboardButton(get_text('back', lang), callback_data='admin')]
     ]
     return InlineKeyboardMarkup(buttons)
@@ -290,6 +301,74 @@ def instruction_management_keyboard(instruction_id: int, lang: str = 'ru') -> In
     ]
     return InlineKeyboardMarkup(buttons)
 
+def recipe_management_keyboard(recipe_id: int, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Recipe management keyboard for admin"""
+    buttons = [
+        [InlineKeyboardButton(get_text('bind_recipe_to_models', lang), callback_data=f'bind_recipe_{recipe_id}')],
+        [InlineKeyboardButton(get_text('unbind_recipe_from_models', lang), callback_data=f'unbind_recipe_{recipe_id}')],
+        [InlineKeyboardButton("✏️ Редактировать", callback_data=f'edit_recipe_{recipe_id}')],
+        [InlineKeyboardButton("🗑 Удалить", callback_data=f'delete_recipe_{recipe_id}')],
+        [InlineKeyboardButton(get_text('back', lang), callback_data='admin_list_recipes')]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+def recipes_keyboard(recipes: List, page: int = 0, total_pages: int = 1, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Recipes list keyboard with pagination"""
+    buttons = []
+    
+    # Add recipes
+    for recipe in recipes:
+        buttons.append([InlineKeyboardButton(
+            recipe.title, 
+            callback_data=f'recipe_{recipe.id}'
+        )])
+    
+    # Add pagination
+    if total_pages > 1:
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f'recipes_page_{page-1}'))
+        nav_buttons.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data='current_page'))
+        if page < total_pages - 1:
+            nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f'recipes_page_{page+1}'))
+        buttons.append(nav_buttons)
+    
+    # Add back button
+    buttons.append([InlineKeyboardButton(get_text('back', lang), callback_data='admin_recipes')])
+    
+    return InlineKeyboardMarkup(buttons)
+
+def model_recipes_keyboard(recipes: List, model_id: int, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Model recipes keyboard for user"""
+    buttons = []
+    
+    # Add recipes
+    for recipe in recipes:
+        if recipe.type.value == 'pdf':
+            icon = "📎"
+        elif recipe.type.value == 'video':
+            icon = "🎬"
+        elif recipe.type.value == 'link':
+            icon = "🔗"
+        else:
+            icon = "📄"
+        buttons.append([InlineKeyboardButton(
+            f"{icon} {recipe.title}",
+            callback_data=f'recipe_{recipe.id}'
+        )])
+    
+    # Add download all button
+    if recipes:
+        buttons.append([InlineKeyboardButton(
+            get_text('download_recipes_package', lang),
+            callback_data=f'recipes_package_{model_id}'
+        )])
+    
+    # Add back button
+    buttons.append([InlineKeyboardButton(get_text('back_to_models', lang), callback_data='choose_model')])
+    
+    return InlineKeyboardMarkup(buttons)
+
 def models_selection_keyboard(models: List[Model], instruction_id: int, action: str, 
                              selected_models: List[int] = None, lang: str = 'ru') -> InlineKeyboardMarkup:
     """Models selection keyboard for binding/unbinding instructions"""
@@ -353,6 +432,50 @@ def new_instruction_models_keyboard(models: List[Model], selected_models: List[i
         buttons.append([InlineKeyboardButton(
             f"💾 Продолжить ({len(selected_models)} моделей)",
             callback_data='confirm_create_instruction'
+        )])
+    
+    # Navigation buttons
+    buttons.append([
+        InlineKeyboardButton("⬅️ Назад", callback_data='back_step'),
+        InlineKeyboardButton("❌ Отмена", callback_data='cancel')
+    ])
+    
+    return InlineKeyboardMarkup(buttons)
+
+def new_recipe_models_keyboard(models: List[Model], selected_models: List[int] = None, 
+                              page: int = 0, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Models selection keyboard for new recipe creation"""
+    if selected_models is None:
+        selected_models = []
+    
+    buttons = []
+    
+    # Show models with checkboxes
+    for model in models:
+        is_selected = model.id in selected_models
+        prefix = "✅" if is_selected else "⬜"
+        
+        action = 'unbind_recipe_model' if is_selected else 'bind_recipe_model'
+        buttons.append([InlineKeyboardButton(
+            f"{prefix} {model.name}",
+            callback_data=f'{action}_{model.id}'
+        )])
+    
+    # Add pagination if needed
+    if len(models) >= 10:  # Assuming 10 models per page
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f'page_recipe_models_{page-1}'))
+        nav_buttons.append(InlineKeyboardButton(f"{page+1}", callback_data='current_page'))
+        if len(models) == 10:  # More pages available
+            nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f'page_recipe_models_{page+1}'))
+        buttons.append(nav_buttons)
+    
+    # Add action buttons
+    if selected_models:
+        buttons.append([InlineKeyboardButton(
+            f"💾 Продолжить ({len(selected_models)} моделей)",
+            callback_data='confirm_create_recipe'
         )])
     
     # Navigation buttons
