@@ -13,7 +13,7 @@ class ModelsService:
     def get_models(self, page: int = 0, limit: int = 10) -> List[Model]:
         """Get paginated list of models"""
         offset = page * limit
-        return self.db.query(Model).offset(offset).limit(limit).all()
+        return self.db.query(Model).order_by(Model.created_at.desc(), Model.id.desc()).offset(offset).limit(limit).all()
     
     def search_models(self, query: str, page: int = 0, limit: int = 10) -> List[Model]:
         """Search models by name, description or tags"""
@@ -23,7 +23,7 @@ class ModelsService:
             Model.description.ilike(f"%{query}%"),
             Model.tags.ilike(f"%{query}%")
         )
-        return self.db.query(Model).filter(search_filter).offset(offset).limit(limit).all()
+        return self.db.query(Model).filter(search_filter).order_by(Model.created_at.desc(), Model.id.desc()).offset(offset).limit(limit).all()
     
     def get_model_by_id(self, model_id: int) -> Optional[Model]:
         """Get model by ID"""

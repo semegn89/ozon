@@ -336,7 +336,9 @@ async def handle_choose_model(query, lang: str):
         total_count = models_service.get_models_count()
         total_pages = math.ceil(total_count / 10)
         # Debug logging
-        logger.info(f"Found {len(models)} models, total: {total_count}")
+        logger.info(f"Choose model: found {len(models)} models, total: {total_count}, total_pages: {total_pages}")
+        visible_model_ids = [model.id for model in models]
+        logger.info(f"Visible model IDs: {visible_model_ids}")
         for model in models:
             logger.info(f"Model: ID={model.id}, name='{model.name}'")
         if not models:
@@ -367,6 +369,12 @@ async def handle_models_page(query, page: int, lang: str):
         elif page >= total_pages and total_pages > 0:
             page = total_pages - 1
         models = models_service.get_models(page=page, limit=10)
+        
+        # Debug logging
+        logger.info(f"Models page {page}: found {len(models)} models, total: {total_count}, total_pages: {total_pages}")
+        visible_model_ids = [model.id for model in models]
+        logger.info(f"Visible model IDs on page {page}: {visible_model_ids}")
+        
         await query.edit_message_text(
             get_text('models_list', lang),
             reply_markup=models_keyboard(models, page, total_pages, lang)
