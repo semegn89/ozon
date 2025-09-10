@@ -1303,11 +1303,11 @@ async def handle_admin_add_instruction_file_wait(update: Update, context: Contex
         logger.info(f"Admin {user_id} sent photo, size: {file_size}")
     else:
         # User sent text instead of file
-            await update.message.reply_text(
+        await update.message.reply_text(
             "Пожалуйста, пришлите файл. Для отмены — нажмите ❌ Отмена.",
             reply_markup=back_cancel_keyboard(lang)
-            )
-            return
+        )
+        return
     # Check file size (20 MB limit)
     if file_size > 20 * 1024 * 1024:  # 20 MB in bytes
         await update.message.reply_text(
