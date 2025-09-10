@@ -49,6 +49,25 @@ def is_debounced(user_id: int, callback_data: str, debounce_time: float = 0.5) -
     
     debounce_tracker[key] = current_time
     return False
+
+async def safe_send_message(bot, chat_id: int, text: str, **kwargs):
+    """Send message with RetryAfter handling"""
+    try:
+        await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+    except TelegramError as e:
+        if "RetryAfter" in str(e):
+            retry_after = getattr(e, 'retry_after', 1)
+            logger.warning(f"Rate limited, waiting {retry_after + 0.3} seconds")
+            await asyncio.sleep(retry_after + 0.3)
+            # Retry once
+            try:
+                await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+            except TelegramError as retry_error:
+                logger.error(f"Failed to send message after retry: {retry_error}")
+                raise retry_error
+        else:
+            logger.error(f"Failed to send message: {e}")
+            raise e
 # Global variables for graceful shutdown
 shutdown_event = threading.Event()
 application_instance = None
@@ -405,9 +424,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
 
                 await query.edit_message_text(
-                    get_text('main_menu', lang),
-                    reply_markup=main_menu_keyboard(lang)
-                )
+                get_text('main_menu', lang),
+                reply_markup=main_menu_keyboard(lang)
+            )
     except Exception as e:
         logger.error(f"Error in button_callback: {e}")
         logger.error(f"User ID: {user.id}")
@@ -604,7 +623,8 @@ async def handle_instruction_selected(query, context: ContextTypes.DEFAULT_TYPE,
                     caption=instruction.description or instruction.title
                 )
         elif instruction.url:
-            await context.bot.send_message(
+            await safe_send_message(
+                context.bot,
                 chat_id=query.message.chat.id,
                 text=f"🔗 {instruction.title}\n\n{instruction.description or ''}\n\n{instruction.url}"
             )
@@ -623,28 +643,28 @@ async def handle_download_package(query, context: ContextTypes.DEFAULT_TYPE, mod
         # Send all instructions with rate limiting
         for i, instruction in enumerate(model.instructions):
             try:
-
                 if instruction.tg_file_id:
-                if instruction.type == InstructionType.PDF:
+                    if instruction.type == InstructionType.PDF:
                         await context.bot.send_document(
                             chat_id=query.message.chat.id,
-                        document=instruction.tg_file_id,
-                        caption=instruction.title
-                    )
-                elif instruction.type == InstructionType.VIDEO:
+                            document=instruction.tg_file_id,
+                            caption=instruction.title
+                        )
+                    elif instruction.type == InstructionType.VIDEO:
                         await context.bot.send_video(
                             chat_id=query.message.chat.id,
-                        video=instruction.tg_file_id,
-                        caption=instruction.title
-                    )
-                else:
+                            video=instruction.tg_file_id,
+                            caption=instruction.title
+                        )
+                    else:
                         await context.bot.send_document(
                             chat_id=query.message.chat.id,
-                        document=instruction.tg_file_id,
-                        caption=instruction.title
-                    )
-            elif instruction.url:
-                    await context.bot.send_message(
+                            document=instruction.tg_file_id,
+                            caption=instruction.title
+                        )
+                elif instruction.url:
+                    await safe_send_message(
+                        context.bot,
                         chat_id=query.message.chat.id,
                     text=f"🔗 {instruction.title}\n{instruction.url}"
                 )
@@ -679,10 +699,10 @@ async def handle_support(query, lang: str):
         else:
             # Create new ticket
             user_states[user_id] = UserState('support_waiting')
-    await query.edit_message_text(
-        get_text('support_question', lang),
-        reply_markup=cancel_keyboard(lang)
-    )
+            await query.edit_message_text(
+                get_text('support_question', lang),
+                reply_markup=cancel_keyboard(lang)
+            )
     except Exception as e:
         logger.error(f"Error in handle_support: {e}")
         await query.edit_message_text(
@@ -1009,11 +1029,22 @@ async def handle_admin_ticket_in_progress(query, ticket_id: int, lang: str):
     db = get_session()
     try:
         support_service = SupportService(db)
+        # Check if ticket exists and is not already closed
+        ticket = support_service.get_ticket_by_id(ticket_id)
+        if not ticket:
+            await query.answer("Тикет не найден!", show_alert=True)
+            return
+        if ticket.status == TicketStatus.CLOSED:
+            await query.answer("Нельзя изменить статус закрытого тикета!", show_alert=True)
+            return
+        
+        # Update ticket status
         ticket = support_service.update_ticket_status(ticket_id, TicketStatus.IN_PROGRESS)
         if ticket:
             # Notify user about status change
             try:
-                await query.bot.send_message(
+                await safe_send_message(
+                    query.bot,
                     chat_id=ticket.user_id,
                     text=f"🟡 Ваше обращение T-{ticket_id} взято в работу.\n\nМы работаем над решением вашего вопроса."
                 )
@@ -1048,11 +1079,22 @@ async def handle_admin_ticket_close(query, ticket_id: int, lang: str):
     db = get_session()
     try:
         support_service = SupportService(db)
+        # Check if ticket exists and is not already closed
+        ticket = support_service.get_ticket_by_id(ticket_id)
+        if not ticket:
+            await query.answer("Тикет не найден!", show_alert=True)
+            return
+        if ticket.status == TicketStatus.CLOSED:
+            await query.answer("Тикет уже закрыт!", show_alert=True)
+            return
+        
+        # Close the ticket
         ticket = support_service.update_ticket_status(ticket_id, TicketStatus.CLOSED)
         if ticket:
             # Notify user about ticket closure
             try:
-                await query.bot.send_message(
+                await safe_send_message(
+                    query.bot,
                     chat_id=ticket.user_id,
                     text=f"🔴 Ваше обращение T-{ticket_id} закрыто.\n\nСпасибо за обращение!"
                 )
@@ -1615,7 +1657,7 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
         admin_text += f"📝 Текст: {update.message.text}"
         for admin_id in ADMIN_CHAT_IDS:
             try:
-                await context.bot.send_message(chat_id=admin_id, text=admin_text)
+                await safe_send_message(context.bot, chat_id=admin_id, text=admin_text)
             except TelegramError as e:
                 logger.error(f"Failed to send message to admin {admin_id}: {e}")
         await update.message.reply_text(
@@ -1656,7 +1698,7 @@ async def handle_support_model_message(update: Update, context: ContextTypes.DEF
         admin_text += f"📝 Текст: {update.message.text}"
         for admin_id in ADMIN_CHAT_IDS:
             try:
-                await context.bot.send_message(chat_id=admin_id, text=admin_text)
+                await safe_send_message(context.bot, chat_id=admin_id, text=admin_text)
             except TelegramError as e:
                 logger.error(f"Failed to send message to admin {admin_id}: {e}")
         await update.message.reply_text(
@@ -1704,7 +1746,7 @@ async def handle_support_ticket_message(update: Update, context: ContextTypes.DE
         admin_text += f"📝 Текст: {update.message.text}"
         for admin_id in ADMIN_CHAT_IDS:
             try:
-                await context.bot.send_message(chat_id=admin_id, text=admin_text)
+                await safe_send_message(context.bot, chat_id=admin_id, text=admin_text)
             except TelegramError as e:
                 logger.error(f"Failed to send message to admin {admin_id}: {e}")
         
@@ -2194,7 +2236,8 @@ async def handle_admin_reply_ticket_message(update: Update, context: ContextType
         
         # Send message to user
         try:
-            await context.bot.send_message(
+            await safe_send_message(
+                context.bot,
                 chat_id=ticket.user_id,
                 text=f"👨‍💼 <b>Ответ от поддержки (T-{ticket_id}):</b>\n\n{update.message.text}"
             )
@@ -2827,7 +2870,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     error_text = f"🚨 Ошибка в боте:\n\n{str(error)}"
     for admin_id in ADMIN_CHAT_IDS:
         try:
-            await context.bot.send_message(chat_id=admin_id, text=error_text)
+            await safe_send_message(context.bot, chat_id=admin_id, text=error_text)
         except:
             pass
 # ==================== HEALTHCHECK SERVER ====================
@@ -3249,7 +3292,8 @@ async def handle_recipe_selected(query, context, recipe_id: int, lang: str):
                     caption=recipe.title
                 )
         elif recipe.url:
-            await context.bot.send_message(
+            await safe_send_message(
+                context.bot,
                 chat_id=query.message.chat.id,
                 text=f"🔗 {recipe.title}\n{recipe.url}"
             )
@@ -3305,7 +3349,8 @@ async def handle_download_recipes_package(query, context, model_id: int, lang: s
                             caption=recipe.title
                         )
                 elif recipe.url:
-                    await context.bot.send_message(
+                    await safe_send_message(
+                        context.bot,
                         chat_id=query.message.chat.id,
                         text=f"🔗 {recipe.title}\n{recipe.url}"
                     )

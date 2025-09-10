@@ -107,6 +107,7 @@ class Ticket(Base):
     subject = Column(String(500))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    closed_at = Column(DateTime, nullable=True)
     
     # Relationships
     messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")

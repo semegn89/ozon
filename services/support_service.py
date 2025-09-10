@@ -47,6 +47,10 @@ class SupportService:
             return None
         
         ticket.status = status
+        # Set closed_at when closing ticket
+        if status == TicketStatus.CLOSED:
+            ticket.closed_at = datetime.utcnow()
+        
         self.db.commit()
         self.db.refresh(ticket)
         logger.info(f"Updated ticket {ticket_id} status to {status.value}")
