@@ -133,4 +133,4 @@ class RecipesService:
         model = self.db.query(Model).filter(Model.id == model_id).first()
         if not model:
             return []
-        return model.recipes
+        return sorted(model.recipes, key=lambda x: (x.created_at, x.id), reverse=True)

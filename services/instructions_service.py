@@ -13,7 +13,7 @@ class InstructionsService:
     def get_instructions(self, page: int = 0, limit: int = 10) -> List[Instruction]:
         """Get paginated list of instructions"""
         offset = page * limit
-        return self.db.query(Instruction).offset(offset).limit(limit).all()
+        return self.db.query(Instruction).order_by(Instruction.created_at.desc(), Instruction.id.desc()).offset(offset).limit(limit).all()
     
     def get_instruction_by_id(self, instruction_id: int) -> Optional[Instruction]:
         """Get instruction by ID"""
@@ -118,7 +118,7 @@ class InstructionsService:
             Instruction.title.ilike(f"%{query}%"),
             Instruction.description.ilike(f"%{query}%")
         )
-        return self.db.query(Instruction).filter(search_filter).offset(offset).limit(limit).all()
+        return self.db.query(Instruction).filter(search_filter).order_by(Instruction.created_at.desc(), Instruction.id.desc()).offset(offset).limit(limit).all()
     
     def get_instructions_by_type(self, instruction_type: InstructionType, 
                                 page: int = 0, limit: int = 10) -> List[Instruction]:
@@ -126,11 +126,11 @@ class InstructionsService:
         offset = page * limit
         return self.db.query(Instruction).filter(
             Instruction.type == instruction_type
-        ).offset(offset).limit(limit).all()
+        ).order_by(Instruction.created_at.desc(), Instruction.id.desc()).offset(offset).limit(limit).all()
     
     def get_instructions_by_model_id(self, model_id: int) -> List[Instruction]:
         """Get all instructions for a specific model"""
         model = self.db.query(Model).filter(Model.id == model_id).first()
         if not model:
             return []
-        return model.instructions
+        return sorted(model.instructions, key=lambda x: (x.created_at, x.id), reverse=True)
