@@ -298,6 +298,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith('confirm_unbind_recipe_'):
             recipe_id = int(data.split('_')[3])
             await handle_confirm_unbind_recipe(query, recipe_id, lang)
+        elif data.startswith('model_selection_recipe_'):
+            parts = data.split('_')
+            model_id = int(parts[3])
+            recipe_id = int(parts[4])
+            action = parts[5]
+            await handle_model_selection_for_recipe(query, model_id, recipe_id, action, lang)
         # New instruction creation flow
         elif data.startswith('bind_model_'):
             parts = data.split('_')
@@ -360,9 +366,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             else:
                 await query.edit_message_text(
-                get_text('main_menu', lang),
-                reply_markup=main_menu_keyboard(lang)
-            )
+                    get_text('main_menu', lang),
+                    reply_markup=main_menu_keyboard(lang)
+                )
     except Exception as e:
         logger.error(f"Error in button_callback: {e}")
         logger.error(f"User ID: {user.id}")
@@ -1122,9 +1128,9 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         else:
             await update.message.reply_text(
-            "Пожалуйста, используйте меню для навигации.",
-            reply_markup=main_menu_keyboard(lang)
-        )
+                "Пожалуйста, используйте меню для навигации.",
+                reply_markup=main_menu_keyboard(lang)
+            )
         return
     state = user_states[user.id]
     logger.info(f"User {user.id} state: {state.state}")
@@ -1498,6 +1504,54 @@ async def handle_admin_add_instruction_confirm(update: Update, context: ContextT
         "Пожалуйста, используйте кнопки выше для подтверждения.",
         reply_markup=back_cancel_keyboard(lang)
     )
+
+async def handle_model_selection_for_recipe(query, model_id: int, recipe_id: int, action: str, lang: str):
+    """Handle model selection for recipe binding/unbinding"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    user_id = query.from_user.id
+    # Initialize or get user state for model selection
+    if user_id not in user_states:
+        user_states[user_id] = UserState('model_selection', {
+            'recipe_id': recipe_id,
+            'action': action,
+            'selected_models': []
+        })
+    state = user_states[user_id]
+    selected_models = state.data.get('selected_models', [])
+    # Toggle model selection
+    if model_id in selected_models:
+        selected_models.remove(model_id)
+    else:
+        selected_models.append(model_id)
+    state.data['selected_models'] = selected_models
+    user_states[user_id] = state
+    # Update keyboard
+    db = get_session()
+    try:
+        models_service = ModelsService(db)
+        recipes_service = RecipesService(db)
+        
+        if action == 'bind_recipe':
+            models = models_service.get_models(page=0, limit=50)
+            bound_models = recipes_service.get_recipe_models(recipe_id)
+            bound_model_ids = [model.id for model in bound_models]
+        else:  # unbind_recipe
+            bound_models = recipes_service.get_recipe_models(recipe_id)
+            models = bound_models
+            bound_model_ids = []
+        
+        await query.edit_message_reply_markup(
+            reply_markup=models_selection_keyboard(models, recipe_id, action, bound_model_ids, lang)
+        )
+        await query.answer(f"Выбрано моделей: {len(selected_models)}")
+    except Exception as e:
+        logger.error(f"Error in handle_model_selection_for_recipe: {e}")
+        await query.answer("Ошибка при обновлении выбора.", show_alert=True)
+    finally:
+        db.close()
+
 async def handle_bind_model_to_new_instruction(query, model_id: int, lang: str):
     """Handle binding model to new instruction"""
     if not is_admin(query.from_user.id):
@@ -2089,48 +2143,458 @@ def start_healthcheck_server():
 
 # ==================== RECIPE HANDLERS (STUBS) ====================
 async def handle_admin_add_recipe(query, lang: str):
-    """Handle admin add recipe - stub"""
-    await query.edit_message_text("Функция добавления рецепта будет реализована в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+    """Handle admin add recipe"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    user_id = query.from_user.id
+    user_states[user_id] = UserState('ADD_RECIPE_TITLE')
+    logger.info(f"Admin {user_id} started adding recipe, state set to: ADD_RECIPE_TITLE")
+    await query.edit_message_text(
+        get_text('recipe_title_prompt', lang),
+        reply_markup=cancel_keyboard(lang)
+    )
 
 async def handle_admin_list_recipes(query, lang: str):
-    """Handle admin list recipes - stub"""
-    await query.edit_message_text("Функция списка рецептов будет реализована в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+    """Handle admin list recipes"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        recipes_service = RecipesService(db)
+        recipes = recipes_service.get_recipes(page=0, limit=10)
+        total_count = recipes_service.get_recipes_count()
+        total_pages = math.ceil(total_count / 10) if total_count > 0 else 1
+        
+        if not recipes:
+            await query.edit_message_text(
+                "📋 Список рецептов\n\nПока нет рецептов.\nИспользуйте кнопку «➕ Добавить рецепт» для создания первого рецепта.",
+                reply_markup=admin_recipes_keyboard(lang)
+            )
+        else:
+            await query.edit_message_text(
+                f"📋 Список рецептов (всего: {total_count}):",
+                reply_markup=recipes_keyboard(recipes, 0, total_pages, lang)
+            )
+    except Exception as e:
+        logger.error(f"Error in handle_admin_list_recipes: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при загрузке списка рецептов.",
+            reply_markup=admin_recipes_keyboard(lang)
+        )
+    finally:
+        db.close()
 
 async def handle_admin_recipe_management(query, recipe_id: int, lang: str):
-    """Handle admin recipe management - stub"""
-    await query.edit_message_text(f"Управление рецептом {recipe_id} будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+    """Handle admin recipe management"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        recipes_service = RecipesService(db)
+        recipe = recipes_service.get_recipe_by_id(recipe_id)
+        
+        if not recipe:
+            await query.edit_message_text(
+                "Рецепт не найден!",
+                reply_markup=admin_recipes_keyboard(lang)
+            )
+            return
+        
+        # Get bound models
+        bound_models = recipes_service.get_recipe_models(recipe_id)
+        models_text = ", ".join([model.name for model in bound_models]) if bound_models else "Не привязан"
+        
+        # Format recipe info
+        type_emoji = "📎" if recipe.type.value == 'pdf' else "🎬" if recipe.type.value == 'video' else "🔗"
+        text = f"{type_emoji} <b>{recipe.title}</b>\n\n"
+        text += f"📝 <b>Тип:</b> {recipe.type.value.upper()}\n"
+        text += f"📅 <b>Создан:</b> {recipe.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+        text += f"🔗 <b>Привязан к моделям:</b> {models_text}\n"
+        if recipe.description:
+            text += f"\n📄 <b>Описание:</b>\n{recipe.description}"
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=recipe_management_keyboard(recipe_id, lang)
+        )
+    except Exception as e:
+        logger.error(f"Error in handle_admin_recipe_management: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при загрузке рецепта.",
+            reply_markup=admin_recipes_keyboard(lang)
+        )
+    finally:
+        db.close()
 
 async def handle_bind_recipe_to_models(query, recipe_id: int, lang: str):
-    """Handle bind recipe to models - stub"""
-    await query.edit_message_text(f"Привязка рецепта {recipe_id} к моделям будет реализована в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+    """Handle bind recipe to models"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        recipes_service = RecipesService(db)
+        models_service = ModelsService(db)
+        
+        recipe = recipes_service.get_recipe_by_id(recipe_id)
+        if not recipe:
+            await query.edit_message_text(
+                "Рецепт не найден!",
+                reply_markup=admin_recipes_keyboard(lang)
+            )
+            return
+        
+        # Get all models
+        models = models_service.get_models(page=0, limit=50)  # Get more models for selection
+        if not models:
+            await query.edit_message_text(
+                "Нет доступных моделей для привязки.",
+                reply_markup=recipe_management_keyboard(recipe_id, lang)
+            )
+            return
+        
+        # Get currently bound models
+        bound_models = recipes_service.get_recipe_models(recipe_id)
+        bound_model_ids = [model.id for model in bound_models]
+        
+        await query.edit_message_text(
+            get_text('select_models_to_bind_recipe', lang, title=recipe.title),
+            reply_markup=models_selection_keyboard(models, recipe_id, 'bind_recipe', bound_model_ids, lang)
+        )
+    except Exception as e:
+        logger.error(f"Error in handle_bind_recipe_to_models: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при загрузке моделей.",
+            reply_markup=recipe_management_keyboard(recipe_id, lang)
+        )
+    finally:
+        db.close()
 
 async def handle_unbind_recipe_from_models(query, recipe_id: int, lang: str):
-    """Handle unbind recipe from models - stub"""
-    await query.edit_message_text(f"Отвязка рецепта {recipe_id} от моделей будет реализована в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+    """Handle unbind recipe from models"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        recipes_service = RecipesService(db)
+        
+        recipe = recipes_service.get_recipe_by_id(recipe_id)
+        if not recipe:
+            await query.edit_message_text(
+                "Рецепт не найден!",
+                reply_markup=admin_recipes_keyboard(lang)
+            )
+            return
+        
+        # Get currently bound models
+        bound_models = recipes_service.get_recipe_models(recipe_id)
+        if not bound_models:
+            await query.edit_message_text(
+                "Рецепт не привязан ни к одной модели.",
+                reply_markup=recipe_management_keyboard(recipe_id, lang)
+            )
+            return
+        
+        await query.edit_message_text(
+            get_text('select_models_to_unbind_recipe', lang, title=recipe.title),
+            reply_markup=models_selection_keyboard(bound_models, recipe_id, 'unbind_recipe', [], lang)
+        )
+    except Exception as e:
+        logger.error(f"Error in handle_unbind_recipe_from_models: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при загрузке моделей.",
+            reply_markup=recipe_management_keyboard(recipe_id, lang)
+        )
+    finally:
+        db.close()
 
 async def handle_confirm_bind_recipe(query, recipe_id: int, lang: str):
-    """Handle confirm bind recipe - stub"""
-    await query.edit_message_text(f"Подтверждение привязки рецепта {recipe_id} будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+    """Handle confirm bind recipe"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        recipes_service = RecipesService(db)
+        
+        # Get selected models from user state
+        user_id = query.from_user.id
+        if user_id not in user_states:
+            await query.edit_message_text(
+                "Сессия истекла. Попробуйте снова.",
+                reply_markup=admin_recipes_keyboard(lang)
+            )
+            return
+        
+        state = user_states[user_id]
+        selected_models = state.data.get('selected_models', [])
+        
+        if not selected_models:
+            await query.edit_message_text(
+                "Не выбрано ни одной модели.",
+                reply_markup=recipe_management_keyboard(recipe_id, lang)
+            )
+            return
+        
+        # Bind recipe to selected models
+        success = recipes_service.bind_recipe_to_models(recipe_id, selected_models)
+        
+        if success:
+            await query.edit_message_text(
+                get_text('recipe_bound', lang),
+                reply_markup=recipe_management_keyboard(recipe_id, lang)
+            )
+        else:
+            await query.edit_message_text(
+                "Ошибка при привязке рецепта к моделям.",
+                reply_markup=recipe_management_keyboard(recipe_id, lang)
+            )
+        
+        # Clear user state
+        del user_states[user_id]
+    except Exception as e:
+        logger.error(f"Error in handle_confirm_bind_recipe: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при привязке рецепта.",
+            reply_markup=recipe_management_keyboard(recipe_id, lang)
+        )
+    finally:
+        db.close()
 
 async def handle_confirm_unbind_recipe(query, recipe_id: int, lang: str):
-    """Handle confirm unbind recipe - stub"""
-    await query.edit_message_text(f"Подтверждение отвязки рецепта {recipe_id} будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+    """Handle confirm unbind recipe"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        recipes_service = RecipesService(db)
+        
+        # Get selected models from user state
+        user_id = query.from_user.id
+        if user_id not in user_states:
+            await query.edit_message_text(
+                "Сессия истекла. Попробуйте снова.",
+                reply_markup=admin_recipes_keyboard(lang)
+            )
+            return
+        
+        state = user_states[user_id]
+        selected_models = state.data.get('selected_models', [])
+        
+        if not selected_models:
+            await query.edit_message_text(
+                "Не выбрано ни одной модели.",
+                reply_markup=recipe_management_keyboard(recipe_id, lang)
+            )
+            return
+        
+        # Unbind recipe from selected models
+        success = recipes_service.unbind_recipe_from_models(recipe_id, selected_models)
+        
+        if success:
+            await query.edit_message_text(
+                get_text('recipe_unbound', lang),
+                reply_markup=recipe_management_keyboard(recipe_id, lang)
+            )
+        else:
+            await query.edit_message_text(
+                "Ошибка при отвязке рецепта от моделей.",
+                reply_markup=recipe_management_keyboard(recipe_id, lang)
+            )
+        
+        # Clear user state
+        del user_states[user_id]
+    except Exception as e:
+        logger.error(f"Error in handle_confirm_unbind_recipe: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при отвязке рецепта.",
+            reply_markup=recipe_management_keyboard(recipe_id, lang)
+        )
+    finally:
+        db.close()
 
 async def handle_recipes(query, lang: str):
-    """Handle recipes - stub"""
-    await query.edit_message_text("Функция рецептов будет реализована в следующей версии.", reply_markup=main_menu_keyboard(lang))
+    """Handle recipes"""
+    db = get_session()
+    try:
+        models_service = ModelsService(db)
+        models = models_service.get_models(page=0, limit=10)
+        total_count = models_service.get_models_count()
+        total_pages = math.ceil(total_count / 10) if total_count > 0 else 1
+        
+        if not models:
+            await query.edit_message_text(
+                "🍽️ Рецепты\n\nПока нет моделей с рецептами.\nАдминистратор может добавить модели и рецепты.",
+                reply_markup=main_menu_keyboard(lang)
+            )
+        else:
+            await query.edit_message_text(
+                "🍽️ Выберите модель для просмотра рецептов:",
+                reply_markup=models_keyboard(models, 0, total_pages, lang)
+            )
+    except Exception as e:
+        logger.error(f"Error in handle_recipes: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при загрузке моделей.",
+            reply_markup=main_menu_keyboard(lang)
+        )
+    finally:
+        db.close()
 
 async def handle_model_recipes(query, model_id: int, lang: str):
-    """Handle model recipes - stub"""
-    await query.edit_message_text(f"Рецепты для модели {model_id} будут реализованы в следующей версии.", reply_markup=main_menu_keyboard(lang))
+    """Handle model recipes"""
+    db = get_session()
+    try:
+        models_service = ModelsService(db)
+        recipes_service = RecipesService(db)
+        
+        model = models_service.get_model_by_id(model_id)
+        if not model:
+            await query.edit_message_text(
+                get_text('model_not_found', lang),
+                reply_markup=main_menu_keyboard(lang)
+            )
+            return
+        
+        # Get recipes for this model
+        recipes = recipes_service.get_recipes_by_model_id(model_id)
+        
+        if not recipes:
+            await query.edit_message_text(
+                get_text('recipes_list', lang, model_name=model.name) + "\n\nПока нет рецептов для этой модели.",
+                reply_markup=back_cancel_keyboard(lang)
+            )
+        else:
+            await query.edit_message_text(
+                get_text('recipes_list', lang, model_name=model.name),
+                reply_markup=model_recipes_keyboard(recipes, model_id, lang)
+            )
+    except Exception as e:
+        logger.error(f"Error in handle_model_recipes: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при загрузке рецептов.",
+            reply_markup=main_menu_keyboard(lang)
+        )
+    finally:
+        db.close()
 
 async def handle_recipe_selected(query, context, recipe_id: int, lang: str):
-    """Handle recipe selected - stub"""
-    await query.answer("Функция выбора рецепта будет реализована в следующей версии.", show_alert=True)
+    """Handle recipe selected"""
+    db = get_session()
+    try:
+        recipes_service = RecipesService(db)
+        recipe = recipes_service.get_recipe_by_id(recipe_id)
+        
+        if not recipe:
+            await query.answer("Рецепт не найден!", show_alert=True)
+            return
+        
+        # Send recipe based on type
+        if recipe.tg_file_id:
+            if recipe.type.value == 'pdf':
+                await context.bot.send_document(
+                    chat_id=query.message.chat.id,
+                    document=recipe.tg_file_id,
+                    caption=recipe.title
+                )
+            elif recipe.type.value == 'video':
+                await context.bot.send_video(
+                    chat_id=query.message.chat.id,
+                    video=recipe.tg_file_id,
+                    caption=recipe.title
+                )
+            else:
+                await context.bot.send_document(
+                    chat_id=query.message.chat.id,
+                    document=recipe.tg_file_id,
+                    caption=recipe.title
+                )
+        elif recipe.url:
+            await context.bot.send_message(
+                chat_id=query.message.chat.id,
+                text=f"🔗 {recipe.title}\n{recipe.url}"
+            )
+        else:
+            await query.answer("Рецепт временно недоступен.", show_alert=True)
+            return
+        
+        await query.answer(get_text('recipe_sent', lang))
+    except Exception as e:
+        logger.error(f"Error in handle_recipe_selected: {e}")
+        await query.answer("Ошибка при отправке рецепта.", show_alert=True)
+    finally:
+        db.close()
 
 async def handle_download_recipes_package(query, context, model_id: int, lang: str):
-    """Handle download recipes package - stub"""
-    await query.answer("Функция скачивания рецептов будет реализована в следующей версии.", show_alert=True)
+    """Handle download recipes package"""
+    db = get_session()
+    try:
+        models_service = ModelsService(db)
+        recipes_service = RecipesService(db)
+        
+        model = models_service.get_model_by_id(model_id)
+        if not model:
+            await query.answer("Модель не найдена!", show_alert=True)
+            return
+        
+        # Get all recipes for this model
+        recipes = recipes_service.get_recipes_by_model_id(model_id)
+        if not recipes:
+            await query.answer("Нет рецептов для скачивания.", show_alert=True)
+            return
+        
+        # Send all recipes with rate limiting
+        for i, recipe in enumerate(recipes):
+            try:
+                if recipe.tg_file_id:
+                    if recipe.type.value == 'pdf':
+                        await context.bot.send_document(
+                            chat_id=query.message.chat.id,
+                            document=recipe.tg_file_id,
+                            caption=recipe.title
+                        )
+                    elif recipe.type.value == 'video':
+                        await context.bot.send_video(
+                            chat_id=query.message.chat.id,
+                            video=recipe.tg_file_id,
+                            caption=recipe.title
+                        )
+                    else:
+                        await context.bot.send_document(
+                            chat_id=query.message.chat.id,
+                            document=recipe.tg_file_id,
+                            caption=recipe.title
+                        )
+                elif recipe.url:
+                    await context.bot.send_message(
+                        chat_id=query.message.chat.id,
+                        text=f"🔗 {recipe.title}\n{recipe.url}"
+                    )
+                # Add small delay between sends to avoid rate limiting
+                if i < len(recipes) - 1:  # Don't delay after last item
+                    await asyncio.sleep(0.3)
+            except Exception as e:
+                logger.error(f"Error sending recipe {recipe.id}: {e}")
+                # Continue with next recipe
+                continue
+        
+        await query.answer(get_text('recipes_package_sent', lang))
+    except Exception as e:
+        logger.error(f"Error in handle_download_recipes_package: {e}")
+        await query.answer("Ошибка при скачивании рецептов.", show_alert=True)
+    finally:
+        db.close()
 
 async def handle_bind_recipe_model_to_new_recipe(query, model_id: int, lang: str):
     """Handle bind recipe model to new recipe - stub"""
