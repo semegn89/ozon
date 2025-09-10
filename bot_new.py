@@ -220,6 +220,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith('ticket_'):
             ticket_id = int(data.split('_')[1])
             await handle_ticket_details(query, ticket_id, lang)
+        elif data.startswith('user_ticket_message_'):
+            ticket_id = int(data.split('_')[3])
+            await handle_user_ticket_message(query, ticket_id, lang)
+        elif data.startswith('user_ticket_close_'):
+            ticket_id = int(data.split('_')[3])
+            await handle_user_ticket_close(query, ticket_id, lang)
         # Search
         elif data == 'search_model':
             await handle_search_model(query, lang)
@@ -618,11 +624,79 @@ async def handle_download_package(query, context: ContextTypes.DEFAULT_TYPE, mod
 async def handle_support(query, lang: str):
     """Handle support button"""
     user_id = query.from_user.id
-    user_states[user_id] = UserState('support_waiting')
-    await query.edit_message_text(
-        get_text('support_question', lang),
-        reply_markup=cancel_keyboard(lang)
-    )
+    db = get_session()
+    try:
+        support_service = SupportService(db)
+        # Check if user has active ticket
+        user_tickets = support_service.get_user_tickets(user_id, limit=1)
+        active_ticket = None
+        for ticket in user_tickets:
+            if ticket.status in [TicketStatus.OPEN, TicketStatus.IN_PROGRESS]:
+                active_ticket = ticket
+                break
+        
+        if active_ticket:
+            # Show active ticket with history
+            await show_user_ticket(query, active_ticket, support_service, lang)
+        else:
+            # Create new ticket
+            user_states[user_id] = UserState('support_waiting')
+            await query.edit_message_text(
+                get_text('support_question', lang),
+                reply_markup=cancel_keyboard(lang)
+            )
+    except Exception as e:
+        logger.error(f"Error in handle_support: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка. Попробуйте позже.",
+            reply_markup=main_menu_keyboard(lang)
+        )
+    finally:
+        db.close()
+
+async def show_user_ticket(query, ticket, support_service, lang: str):
+    """Show user's active ticket with history"""
+    messages = support_service.get_ticket_messages(ticket.id)
+    
+    # Build ticket history
+    text = f"🎫 <b>Обращение T-{ticket.id}</b>\n"
+    text += f"📅 Создано: {ticket.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+    text += f"📊 Статус: {get_ticket_status_text(ticket.status)}\n\n"
+    
+    if messages:
+        text += "📝 <b>История переписки:</b>\n\n"
+        for message in messages:
+            role_emoji = "👤" if message.from_role == MessageRole.USER else "👨‍💼"
+            time_str = message.created_at.strftime('%d.%m %H:%M')
+            text += f"{role_emoji} <i>{time_str}</i>\n"
+            if message.text:
+                text += f"{message.text}\n"
+            if message.tg_file_id:
+                text += f"📎 <i>Файл прикреплен</i>\n"
+            text += "\n"
+    else:
+        text += "📝 <i>Сообщений пока нет</i>\n\n"
+    
+    # Create keyboard based on ticket status
+    if ticket.status in [TicketStatus.OPEN, TicketStatus.IN_PROGRESS]:
+        keyboard = user_ticket_keyboard(ticket.id, lang)
+    else:
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🆘 Новое обращение", callback_data='support'),
+            InlineKeyboardButton("🏠 Главное меню", callback_data='main_menu')
+        ]])
+    
+    await query.edit_message_text(text, reply_markup=keyboard)
+
+def get_ticket_status_text(status):
+    """Get human-readable ticket status"""
+    status_map = {
+        TicketStatus.OPEN: "🟢 Открыто",
+        TicketStatus.IN_PROGRESS: "🟡 В работе", 
+        TicketStatus.CLOSED: "🔴 Закрыто"
+    }
+    return status_map.get(status, "❓ Неизвестно")
+
 async def handle_support_model(query, model_id: int, lang: str):
     """Handle support for specific model"""
     user_id = query.from_user.id
@@ -702,6 +776,58 @@ async def handle_search_model(query, lang: str):
         get_text('search_prompt', lang),
         reply_markup=cancel_keyboard(lang)
     )
+
+async def handle_user_ticket_message(query, ticket_id: int, lang: str):
+    """Handle user wants to add message to ticket"""
+    user_id = query.from_user.id
+    db = get_session()
+    try:
+        support_service = SupportService(db)
+        ticket = support_service.get_ticket_by_id(ticket_id)
+        if not ticket or ticket.user_id != user_id:
+            await query.answer("Обращение не найдено.", show_alert=True)
+            return
+        
+        if ticket.status == TicketStatus.CLOSED:
+            await query.answer("Обращение закрыто. Создайте новое.", show_alert=True)
+            return
+        
+        # Set user state to add message to this ticket
+        user_states[user_id] = UserState('support_ticket_message', {'ticket_id': ticket_id})
+        await query.edit_message_text(
+            "✍ Напишите ваше сообщение или прикрепите файл:",
+            reply_markup=cancel_keyboard(lang)
+        )
+    finally:
+        db.close()
+
+async def handle_user_ticket_close(query, ticket_id: int, lang: str):
+    """Handle user wants to close ticket"""
+    user_id = query.from_user.id
+    db = get_session()
+    try:
+        support_service = SupportService(db)
+        ticket = support_service.get_ticket_by_id(ticket_id)
+        if not ticket or ticket.user_id != user_id:
+            await query.answer("Обращение не найдено.", show_alert=True)
+            return
+        
+        if ticket.status == TicketStatus.CLOSED:
+            await query.answer("Обращение уже закрыто.", show_alert=True)
+            return
+        
+        # Close ticket
+        support_service.update_ticket_status(ticket_id, TicketStatus.CLOSED)
+        await query.edit_message_text(
+            f"✅ Обращение T-{ticket_id} закрыто.\n\nСпасибо за обращение!",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🆘 Новое обращение", callback_data='support'),
+                InlineKeyboardButton("🏠 Главное меню", callback_data='main_menu')
+            ]])
+        )
+    finally:
+        db.close()
+
 # ==================== ADMIN HANDLERS ====================
 async def handle_admin_menu(query, lang: str):
     """Handle admin menu"""
@@ -1187,6 +1313,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_support_message(update, context, lang)
         elif state.state == 'support_model_waiting':
             await handle_support_model_message(update, context, lang)
+        elif state.state == 'support_ticket_message':
+            await handle_support_ticket_message(update, context, lang)
         elif state.state == 'search_waiting':
             await handle_search_message(update, context, lang)
         # Admin states are handled above in the admin section
@@ -1280,6 +1408,56 @@ async def handle_support_model_message(update: Update, context: ContextTypes.DEF
         db.close()
         if user.id in user_states:
             del user_states[user.id]
+
+async def handle_support_ticket_message(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle support message for existing ticket"""
+    user = update.effective_user
+    state = user_states[user.id]
+    ticket_id = state.data.get('ticket_id')
+    db = get_session()
+    try:
+        support_service = SupportService(db)
+        ticket = support_service.get_ticket_by_id(ticket_id)
+        if not ticket or ticket.user_id != user.id:
+            await update.message.reply_text(
+                "Обращение не найдено.",
+                reply_markup=main_menu_keyboard(lang)
+            )
+            return
+        
+        if ticket.status == TicketStatus.CLOSED:
+            await update.message.reply_text(
+                "Обращение закрыто. Создайте новое.",
+                reply_markup=main_menu_keyboard(lang)
+            )
+            return
+        
+        # Add message to ticket
+        support_service.add_message_to_ticket(
+            ticket_id=ticket_id,
+            from_role=MessageRole.USER,
+            text=update.message.text
+        )
+        
+        # Send notification to admins
+        admin_text = f"❗️ Новое сообщение в обращении T-{ticket_id}\n"
+        admin_text += f"👤 От: @{user.username or 'нет username'} (ID: {user.id})\n"
+        admin_text += f"📝 Текст: {update.message.text}"
+        for admin_id in ADMIN_CHAT_IDS:
+            try:
+                await context.bot.send_message(chat_id=admin_id, text=admin_text)
+            except TelegramError as e:
+                logger.error(f"Failed to send message to admin {admin_id}: {e}")
+        
+        await update.message.reply_text(
+            "✅ Сообщение отправлено в поддержку.",
+            reply_markup=main_menu_keyboard(lang)
+        )
+    finally:
+        db.close()
+        if user.id in user_states:
+            del user_states[user.id]
+
 async def handle_search_message(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
     """Handle search message"""
     user = update.effective_user

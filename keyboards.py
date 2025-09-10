@@ -220,6 +220,15 @@ def admin_tickets_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(buttons)
 
+def user_ticket_keyboard(ticket_id: int, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """User ticket management keyboard"""
+    buttons = [
+        [InlineKeyboardButton("✍ Написать сообщение", callback_data=f'user_ticket_message_{ticket_id}')],
+        [InlineKeyboardButton("❌ Закрыть тикет", callback_data=f'user_ticket_close_{ticket_id}')],
+        [InlineKeyboardButton("🏠 Главное меню", callback_data='main_menu')]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
 def instruction_type_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     """Instruction type selection keyboard"""
     buttons = [
