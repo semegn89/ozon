@@ -423,7 +423,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             else:
 
-                await query.edit_message_text(
+            await query.edit_message_text(
                 get_text('main_menu', lang),
                 reply_markup=main_menu_keyboard(lang)
             )
@@ -553,9 +553,14 @@ async def handle_instructions(query, lang: str):
         models = models_service.get_models(page=0, limit=10)
         total_count = models_service.get_models_count()
         total_pages = math.ceil(total_count / 10)
+        
+        # Debug logging
+        logger.info(f"Instructions: found {len(models)} models, total: {total_count}, total_pages: {total_pages}")
+        visible_model_ids = [model.id for model in models]
+        logger.info(f"Visible model IDs for instructions: {visible_model_ids}")
+        
         if not models:
-
-            await query.edit_message_text(
+    await query.edit_message_text(
                 "Инструкции\n\nПока нет моделей с инструкциями.\nАдминистратор может добавить модели и инструкции.",
                 reply_markup=main_menu_keyboard(lang)
             )
@@ -598,8 +603,11 @@ async def handle_instruction_selected(query, context: ContextTypes.DEFAULT_TYPE,
     db = get_session()
     try:
         files_service = FilesService(db)
+        # Debug logging
+        logger.info(f"Looking for instruction with ID: {instruction_id}")
         instruction = files_service.get_instruction_by_id(instruction_id)
         if not instruction:
+            logger.warning(f"Instruction with ID {instruction_id} not found")
             await query.answer(get_text('instruction_unavailable', lang), show_alert=True)
             return
         # Send instruction based on type
@@ -643,26 +651,26 @@ async def handle_download_package(query, context: ContextTypes.DEFAULT_TYPE, mod
         # Send all instructions with rate limiting
         for i, instruction in enumerate(model.instructions):
             try:
-                if instruction.tg_file_id:
-                    if instruction.type == InstructionType.PDF:
+            if instruction.tg_file_id:
+                if instruction.type == InstructionType.PDF:
                         await context.bot.send_document(
                             chat_id=query.message.chat.id,
-                            document=instruction.tg_file_id,
-                            caption=instruction.title
-                        )
-                    elif instruction.type == InstructionType.VIDEO:
+                        document=instruction.tg_file_id,
+                        caption=instruction.title
+                    )
+                elif instruction.type == InstructionType.VIDEO:
                         await context.bot.send_video(
                             chat_id=query.message.chat.id,
-                            video=instruction.tg_file_id,
-                            caption=instruction.title
-                        )
-                    else:
+                        video=instruction.tg_file_id,
+                        caption=instruction.title
+                    )
+                else:
                         await context.bot.send_document(
                             chat_id=query.message.chat.id,
-                            document=instruction.tg_file_id,
-                            caption=instruction.title
-                        )
-                elif instruction.url:
+                        document=instruction.tg_file_id,
+                        caption=instruction.title
+                    )
+            elif instruction.url:
                     await safe_send_message(
                         context.bot,
                         chat_id=query.message.chat.id,
@@ -699,10 +707,11 @@ async def handle_support(query, lang: str):
         else:
             # Create new ticket
             user_states[user_id] = UserState('support_waiting')
-            await query.edit_message_text(
-                get_text('support_question', lang),
-                reply_markup=cancel_keyboard(lang)
-            )
+            logger.info(f"User {user_id} state updated to: support_waiting")
+    await query.edit_message_text(
+        get_text('support_question', lang),
+        reply_markup=cancel_keyboard(lang)
+    )
     except Exception as e:
         logger.error(f"Error in handle_support: {e}")
         await query.edit_message_text(
@@ -759,6 +768,7 @@ async def handle_support_model(query, model_id: int, lang: str):
     """Handle support for specific model"""
     user_id = query.from_user.id
     user_states[user_id] = UserState('support_model_waiting', {'model_id': model_id})
+    logger.info(f"User {user_id} state updated to: support_model_waiting (model_id: {model_id})")
     db = get_session()
     try:
         models_service = ModelsService(db)
@@ -830,6 +840,7 @@ async def handle_search_model(query, lang: str):
     """Handle search model button"""
     user_id = query.from_user.id
     user_states[user_id] = UserState('search_waiting')
+    logger.info(f"User {user_id} state updated to: search_waiting")
     await query.edit_message_text(
         get_text('search_prompt', lang),
         reply_markup=cancel_keyboard(lang)
@@ -852,6 +863,7 @@ async def handle_user_ticket_message(query, ticket_id: int, lang: str):
         
         # Set user state to add message to this ticket
         user_states[user_id] = UserState('support_ticket_message', {'ticket_id': ticket_id})
+        logger.info(f"User {user_id} state updated to: support_ticket_message (ticket_id: {ticket_id})")
         await query.edit_message_text(
             "✍ Напишите ваше сообщение или прикрепите файл:",
             reply_markup=cancel_keyboard(lang)
@@ -1089,7 +1101,9 @@ async def handle_admin_ticket_close(query, ticket_id: int, lang: str):
             return
         
         # Close the ticket
+        old_status = ticket.status.value
         ticket = support_service.update_ticket_status(ticket_id, TicketStatus.CLOSED)
+        logger.info(f"Ticket {ticket_id} status changed: {old_status} → CLOSED")
         if ticket:
             # Notify user about ticket closure
             try:
@@ -3200,6 +3214,11 @@ async def handle_recipes(query, lang: str):
         total_count = models_service.get_models_count()
         total_pages = math.ceil(total_count / 10) if total_count > 0 else 1
         
+        # Debug logging
+        logger.info(f"Recipes: found {len(models)} models, total: {total_count}, total_pages: {total_pages}")
+        visible_model_ids = [model.id for model in models]
+        logger.info(f"Visible model IDs for recipes: {visible_model_ids}")
+        
         if not models:
 
         
@@ -3265,9 +3284,12 @@ async def handle_recipe_selected(query, context, recipe_id: int, lang: str):
     db = get_session()
     try:
         recipes_service = RecipesService(db)
+        # Debug logging
+        logger.info(f"Looking for recipe with ID: {recipe_id}")
         recipe = recipes_service.get_recipe_by_id(recipe_id)
         
         if not recipe:
+            logger.warning(f"Recipe with ID {recipe_id} not found")
             await query.answer("Рецепт не найден!", show_alert=True)
             return
         
