@@ -229,6 +229,33 @@ def user_ticket_keyboard(ticket_id: int, lang: str = 'ru') -> InlineKeyboardMark
     ]
     return InlineKeyboardMarkup(buttons)
 
+def admin_tickets_list_keyboard(tickets, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Admin tickets list keyboard with ticket selection"""
+    buttons = []
+    
+    # Add ticket buttons (max 10 tickets per page)
+    for ticket in tickets[:10]:
+        status_emoji = "🟢" if ticket.status.value == 'open' else "🟡" if ticket.status.value == 'in_progress' else "🔴"
+        button_text = f"{status_emoji} T-{ticket.id} @{ticket.username or 'unknown'}"
+        buttons.append([InlineKeyboardButton(button_text, callback_data=f'admin_ticket_{ticket.id}')])
+    
+    # Add navigation buttons
+    buttons.append([InlineKeyboardButton("🔄 Обновить", callback_data='admin_open_tickets')])
+    buttons.append([InlineKeyboardButton(get_text('back', lang), callback_data='admin_tickets')])
+    
+    return InlineKeyboardMarkup(buttons)
+
+def admin_ticket_management_keyboard(ticket_id: int, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Admin ticket management keyboard"""
+    buttons = [
+        [InlineKeyboardButton("✍ Ответить клиенту", callback_data=f'admin_reply_ticket_{ticket_id}')],
+        [InlineKeyboardButton("🟡 В работу", callback_data=f'admin_ticket_in_progress_{ticket_id}')],
+        [InlineKeyboardButton("🔴 Закрыть тикет", callback_data=f'admin_ticket_close_{ticket_id}')],
+        [InlineKeyboardButton("📋 К списку тикетов", callback_data='admin_open_tickets')],
+        [InlineKeyboardButton(get_text('back', lang), callback_data='admin_tickets')]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
 def instruction_type_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     """Instruction type selection keyboard"""
     buttons = [

@@ -345,6 +345,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_admin_open_tickets(query, lang)
         elif data == 'admin_ticket_stats':
             await handle_admin_ticket_stats(query, lang)
+        elif data.startswith('admin_ticket_'):
+            ticket_id = int(data.split('_')[2])
+            await handle_admin_ticket_view(query, ticket_id, lang)
+        elif data.startswith('admin_reply_ticket_'):
+            ticket_id = int(data.split('_')[3])
+            await handle_admin_reply_ticket(query, ticket_id, lang)
+        elif data.startswith('admin_ticket_in_progress_'):
+            ticket_id = int(data.split('_')[3])
+            await handle_admin_ticket_in_progress(query, ticket_id, lang)
+        elif data.startswith('admin_ticket_close_'):
+            ticket_id = int(data.split('_')[3])
+            await handle_admin_ticket_close(query, ticket_id, lang)
         # Instruction/Recipe type selection
         elif data.startswith('type_'):
             instruction_type = data.split('_')[1]
@@ -890,6 +902,154 @@ async def handle_admin_settings(query, lang: str):
         "Функция в разработке...",
         reply_markup=admin_menu_keyboard(lang)
     )
+
+async def handle_admin_ticket_view(query, ticket_id: int, lang: str):
+    """Handle admin view specific ticket"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        support_service = SupportService(db)
+        ticket = support_service.get_ticket_by_id(ticket_id)
+        if not ticket:
+            await query.edit_message_text(
+                "Тикет не найден!",
+                reply_markup=admin_tickets_keyboard(lang)
+            )
+            return
+        
+        # Get ticket messages
+        messages = support_service.get_ticket_messages(ticket_id)
+        
+        # Build ticket info
+        text = f"🎫 <b>Обращение T-{ticket.id}</b>\n"
+        text += f"👤 <b>Клиент:</b> @{ticket.username or 'нет username'} (ID: {ticket.user_id})\n"
+        text += f"📅 <b>Создано:</b> {ticket.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+        text += f"📊 <b>Статус:</b> {get_ticket_status_text(ticket.status)}\n"
+        if ticket.subject:
+            text += f"📝 <b>Тема:</b> {ticket.subject}\n"
+        text += "\n"
+        
+        # Add messages history
+        if messages:
+            text += "📝 <b>История переписки:</b>\n\n"
+            for message in messages:
+                role_emoji = "👤" if message.from_role == MessageRole.USER else "👨‍💼"
+                time_str = message.created_at.strftime('%d.%m %H:%M')
+                text += f"{role_emoji} <i>{time_str}</i>\n"
+                if message.text:
+                    text += f"{message.text}\n"
+                if message.tg_file_id:
+                    text += f"📎 <i>Файл прикреплен</i>\n"
+                text += "\n"
+        else:
+            text += "📝 <i>Сообщений пока нет</i>\n\n"
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=admin_ticket_management_keyboard(ticket_id, lang)
+        )
+    except Exception as e:
+        logger.error(f"Error in handle_admin_ticket_view: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при загрузке тикета.",
+            reply_markup=admin_tickets_keyboard(lang)
+        )
+    finally:
+        db.close()
+
+async def handle_admin_reply_ticket(query, ticket_id: int, lang: str):
+    """Handle admin reply to ticket"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    user_id = query.from_user.id
+    user_states[user_id] = UserState('admin_reply_ticket', {'ticket_id': ticket_id})
+    
+    await query.edit_message_text(
+        "✍ Напишите ответ клиенту или прикрепите файл:",
+        reply_markup=cancel_keyboard(lang)
+    )
+
+async def handle_admin_ticket_in_progress(query, ticket_id: int, lang: str):
+    """Handle admin set ticket to in progress"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        support_service = SupportService(db)
+        ticket = support_service.update_ticket_status(ticket_id, TicketStatus.IN_PROGRESS)
+        if ticket:
+            # Notify user about status change
+            try:
+                await query.bot.send_message(
+                    chat_id=ticket.user_id,
+                    text=f"🟡 Ваше обращение T-{ticket_id} взято в работу.\n\nМы работаем над решением вашего вопроса."
+                )
+            except TelegramError as e:
+                logger.error(f"Failed to notify user {ticket.user_id} about status change: {e}")
+            
+            await query.edit_message_text(
+                f"✅ Тикет T-{ticket_id} переведен в статус 'В работе'.",
+                reply_markup=admin_ticket_management_keyboard(ticket_id, lang)
+            )
+        else:
+            await query.edit_message_text(
+                "Ошибка при обновлении статуса тикета.",
+                reply_markup=admin_tickets_keyboard(lang)
+            )
+    except Exception as e:
+        logger.error(f"Error in handle_admin_ticket_in_progress: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при обновлении статуса.",
+            reply_markup=admin_tickets_keyboard(lang)
+        )
+    finally:
+        db.close()
+
+async def handle_admin_ticket_close(query, ticket_id: int, lang: str):
+    """Handle admin close ticket"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    
+    db = get_session()
+    try:
+        support_service = SupportService(db)
+        ticket = support_service.update_ticket_status(ticket_id, TicketStatus.CLOSED)
+        if ticket:
+            # Notify user about ticket closure
+            try:
+                await query.bot.send_message(
+                    chat_id=ticket.user_id,
+                    text=f"🔴 Ваше обращение T-{ticket_id} закрыто.\n\nСпасибо за обращение!"
+                )
+            except TelegramError as e:
+                logger.error(f"Failed to notify user {ticket.user_id} about ticket closure: {e}")
+            
+            await query.edit_message_text(
+                f"✅ Тикет T-{ticket_id} закрыт.",
+                reply_markup=admin_tickets_keyboard(lang)
+            )
+        else:
+            await query.edit_message_text(
+                "Ошибка при закрытии тикета.",
+                reply_markup=admin_tickets_keyboard(lang)
+            )
+    except Exception as e:
+        logger.error(f"Error in handle_admin_ticket_close: {e}")
+        await query.edit_message_text(
+            "Произошла ошибка при закрытии тикета.",
+            reply_markup=admin_tickets_keyboard(lang)
+        )
+    finally:
+        db.close()
+
 # Admin model handlers
 async def handle_admin_add_model(query, lang: str):
     """Handle admin add model"""
@@ -1001,7 +1161,7 @@ async def handle_admin_open_tickets(query, lang: str):
             text += f"   📅 {ticket.created_at.strftime('%d.%m %H:%M')}\n\n"
         await query.edit_message_text(
             text,
-            reply_markup=admin_tickets_keyboard(lang)
+            reply_markup=admin_tickets_list_keyboard(tickets, lang)
         )
     finally:
         db.close()
@@ -1274,6 +1434,9 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif state.state == 'ADD_RECIPE_CONFIRM':
                 logger.info(f"Processing ADD_RECIPE_CONFIRM for user {user.id}")
                 await handle_admin_add_recipe_confirm(update, context, lang)
+            elif state.state == 'admin_reply_ticket':
+                logger.info(f"Processing admin_reply_ticket for user {user.id}")
+                await handle_admin_reply_ticket_message(update, context, lang)
             else:
                 # Unknown admin state, clear it
                 logger.warning(f"Unknown admin state '{state.state}' for user {user.id}, clearing state")
@@ -1905,6 +2068,62 @@ async def handle_admin_add_recipe_confirm(update: Update, context: ContextTypes.
         "Пожалуйста, используйте кнопки выше для подтверждения.",
         reply_markup=back_cancel_keyboard(lang)
     )
+
+async def handle_admin_reply_ticket_message(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin reply to ticket message"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    
+    user = update.effective_user
+    state = user_states[user.id]
+    ticket_id = state.data.get('ticket_id')
+    db = get_session()
+    try:
+        support_service = SupportService(db)
+        ticket = support_service.get_ticket_by_id(ticket_id)
+        if not ticket:
+            await update.message.reply_text(
+                "Тикет не найден!",
+                reply_markup=admin_menu_keyboard(lang)
+            )
+            return
+        
+        # Add admin message to ticket
+        support_service.add_message_to_ticket(
+            ticket_id=ticket_id,
+            from_role=MessageRole.ADMIN,
+            text=update.message.text
+        )
+        
+        # Send message to user
+        try:
+            await context.bot.send_message(
+                chat_id=ticket.user_id,
+                text=f"👨‍💼 <b>Ответ от поддержки (T-{ticket_id}):</b>\n\n{update.message.text}"
+            )
+        except TelegramError as e:
+            logger.error(f"Failed to send message to user {ticket.user_id}: {e}")
+            await update.message.reply_text(
+                "✅ Ответ добавлен в тикет, но не удалось отправить пользователю.",
+                reply_markup=admin_ticket_management_keyboard(ticket_id, lang)
+            )
+            return
+        
+        await update.message.reply_text(
+            f"✅ Ответ отправлен клиенту (T-{ticket_id}).",
+            reply_markup=admin_ticket_management_keyboard(ticket_id, lang)
+        )
+    except Exception as e:
+        logger.error(f"Error in handle_admin_reply_ticket_message: {e}")
+        await update.message.reply_text(
+            "Произошла ошибка при отправке ответа.",
+            reply_markup=admin_menu_keyboard(lang)
+        )
+    finally:
+        db.close()
+        if user.id in user_states:
+            del user_states[user.id]
 
 async def handle_model_selection_for_recipe(query, model_id: int, recipe_id: int, action: str, lang: str):
     """Handle model selection for recipe binding/unbinding"""
