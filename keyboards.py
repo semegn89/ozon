@@ -108,6 +108,68 @@ def tickets_keyboard(tickets: List[Ticket], lang: str = 'ru') -> InlineKeyboardM
     buttons.append([InlineKeyboardButton(get_text('back_to_menu', lang), callback_data='main_menu')])
     return InlineKeyboardMarkup(buttons)
 
+def admin_edit_models_keyboard(models: List[Model], page: int = 0, total_pages: int = 1, 
+                              lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Admin edit models keyboard"""
+    buttons = []
+    
+    # Add models with edit buttons
+    for model in models:
+        buttons.append([InlineKeyboardButton(
+            f"✏️ {model.name}", 
+            callback_data=f'admin_edit_model_{model.id}'
+        )])
+    
+    # Add pagination
+    if total_pages > 1:
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f'admin_edit_models_page_{page-1}'))
+        nav_buttons.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data='current_page'))
+        if page < total_pages - 1:
+            nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f'admin_edit_models_page_{page+1}'))
+        buttons.append(nav_buttons)
+    
+    # Add back button
+    buttons.append([InlineKeyboardButton(get_text('back_to_menu', lang), callback_data='admin_models')])
+    
+    return InlineKeyboardMarkup(buttons)
+
+def admin_delete_models_keyboard(models: List[Model], page: int = 0, total_pages: int = 1, 
+                                lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Admin delete models keyboard"""
+    buttons = []
+    
+    # Add models with delete buttons
+    for model in models:
+        buttons.append([InlineKeyboardButton(
+            f"🗑️ {model.name}", 
+            callback_data=f'admin_delete_model_{model.id}'
+        )])
+    
+    # Add pagination
+    if total_pages > 1:
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f'admin_delete_models_page_{page-1}'))
+        nav_buttons.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data='current_page'))
+        if page < total_pages - 1:
+            nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f'admin_delete_models_page_{page+1}'))
+        buttons.append(nav_buttons)
+    
+    # Add back button
+    buttons.append([InlineKeyboardButton(get_text('back_to_menu', lang), callback_data='admin_models')])
+    
+    return InlineKeyboardMarkup(buttons)
+
+def confirm_delete_model_keyboard(model_id: int, lang: str = 'ru') -> InlineKeyboardMarkup:
+    """Confirmation keyboard for model deletion"""
+    buttons = [
+        [InlineKeyboardButton("✅ Да, удалить", callback_data=f'confirm_delete_model_{model_id}')],
+        [InlineKeyboardButton("❌ Отмена", callback_data='admin_delete_model')]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
 def admin_menu_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     """Admin menu keyboard"""
     buttons = [
