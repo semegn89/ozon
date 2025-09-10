@@ -1549,9 +1549,17 @@ async def handle_save_instruction(query, lang: str):
     try:
         instructions_service = InstructionsService(db)
         # Create instruction
+        # Convert string type to enum
+        type_mapping = {
+            'pdf': InstructionType.PDF,
+            'video': InstructionType.VIDEO,
+            'link': InstructionType.LINK
+        }
+        instruction_type = type_mapping.get(state.data['type'], InstructionType.PDF)
+        
         instruction = instructions_service.create_instruction(
             title=state.data['title'],
-            instruction_type=state.data['type'],  # Already an enum
+            instruction_type=instruction_type,
             description=state.data.get('description'),
             tg_file_id=state.data.get('tg_file_id'),
             url=state.data.get('url')
