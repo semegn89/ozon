@@ -20,6 +20,7 @@ from services.models_service import ModelsService
 from services.files_service import FilesService
 from services.support_service import SupportService
 from services.instructions_service import InstructionsService
+from services.recipes_service import RecipesService
 from keyboards import *
 from texts import get_text
 # Setup logging
@@ -196,6 +197,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith('package_'):
             model_id = int(data.split('_')[1])
             await handle_download_package(query, context, model_id, lang)
+        # Recipes
+        elif data == 'recipes':
+            await handle_recipes(query, lang)
+        elif data.startswith('recipes_'):
+            model_id = int(data.split('_')[1])
+            await handle_model_recipes(query, model_id, lang)
+        elif data.startswith('recipe_'):
+            recipe_id = int(data.split('_')[1])
+            await handle_recipe_selected(query, context, recipe_id, lang)
+        elif data.startswith('recipes_package_'):
+            model_id = int(data.split('_')[2])
+            await handle_download_recipes_package(query, context, model_id, lang)
         # Support
         elif data == 'support':
             await handle_support(query, lang)
@@ -217,6 +230,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_admin_models(query, lang)
         elif data == 'admin_instructions':
             await handle_admin_instructions(query, lang)
+        elif data == 'admin_recipes':
+            await handle_admin_recipes(query, lang)
         elif data == 'admin_tickets':
             await handle_admin_tickets(query, lang)
         elif data == 'admin_settings':
@@ -263,6 +278,26 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith('confirm_unbind_instruction_'):
             instruction_id = int(data.split('_')[3])
             await handle_confirm_unbind_instruction(query, instruction_id, lang)
+        # Admin - Recipes
+        elif data == 'admin_add_recipe':
+            await handle_admin_add_recipe(query, lang)
+        elif data == 'admin_list_recipes':
+            await handle_admin_list_recipes(query, lang)
+        elif data.startswith('admin_recipe_'):
+            recipe_id = int(data.split('_')[2])
+            await handle_admin_recipe_management(query, recipe_id, lang)
+        elif data.startswith('bind_recipe_'):
+            recipe_id = int(data.split('_')[2])
+            await handle_bind_recipe_to_models(query, recipe_id, lang)
+        elif data.startswith('unbind_recipe_'):
+            recipe_id = int(data.split('_')[2])
+            await handle_unbind_recipe_from_models(query, recipe_id, lang)
+        elif data.startswith('confirm_bind_recipe_'):
+            recipe_id = int(data.split('_')[3])
+            await handle_confirm_bind_recipe(query, recipe_id, lang)
+        elif data.startswith('confirm_unbind_recipe_'):
+            recipe_id = int(data.split('_')[3])
+            await handle_confirm_unbind_recipe(query, recipe_id, lang)
         # New instruction creation flow
         elif data.startswith('bind_model_'):
             parts = data.split('_')
@@ -276,6 +311,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_confirm_create_instruction(query, lang)
         elif data == 'save_instruction':
             await handle_save_instruction(query, lang)
+        # New recipe creation flow
+        elif data.startswith('bind_recipe_model_'):
+            parts = data.split('_')
+            model_id = int(parts[3])
+            await handle_bind_recipe_model_to_new_recipe(query, model_id, lang)
+        elif data.startswith('unbind_recipe_model_'):
+            parts = data.split('_')
+            model_id = int(parts[3])
+            await handle_unbind_recipe_model_from_new_recipe(query, model_id, lang)
+        elif data == 'confirm_create_recipe':
+            await handle_confirm_create_recipe(query, lang)
+        elif data == 'save_recipe':
+            await handle_save_recipe(query, lang)
         elif data == 'continue_master':
             await handle_continue_master(query, lang)
         elif data == 'exit_master':
@@ -312,9 +360,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             else:
                 await query.edit_message_text(
-                    get_text('main_menu', lang),
-                    reply_markup=main_menu_keyboard(lang)
-                )
+                get_text('main_menu', lang),
+                reply_markup=main_menu_keyboard(lang)
+            )
     except Exception as e:
         logger.error(f"Error in button_callback: {e}")
         logger.error(f"User ID: {user.id}")
@@ -676,6 +724,17 @@ async def handle_admin_instructions(query, lang: str):
         "Управление инструкциями:",
         reply_markup=admin_instructions_keyboard(lang)
     )
+
+async def handle_admin_recipes(query, lang: str):
+    """Handle admin recipes"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    await query.edit_message_text(
+        "Управление рецептами:",
+        reply_markup=admin_recipes_keyboard(lang)
+    )
+
 async def handle_admin_tickets(query, lang: str):
     """Handle admin tickets"""
     if not is_admin(query.from_user.id):
@@ -1063,9 +1122,9 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         else:
             await update.message.reply_text(
-                "Пожалуйста, используйте меню для навигации.",
-                reply_markup=main_menu_keyboard(lang)
-            )
+            "Пожалуйста, используйте меню для навигации.",
+            reply_markup=main_menu_keyboard(lang)
+        )
         return
     state = user_states[user.id]
     logger.info(f"User {user.id} state: {state.state}")
@@ -2027,6 +2086,68 @@ def start_healthcheck_server():
             logger.info("Healthcheck server stopped")
     except Exception as e:
         logger.error(f"Healthcheck server error: {e}")
+
+# ==================== RECIPE HANDLERS (STUBS) ====================
+async def handle_admin_add_recipe(query, lang: str):
+    """Handle admin add recipe - stub"""
+    await query.edit_message_text("Функция добавления рецепта будет реализована в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+
+async def handle_admin_list_recipes(query, lang: str):
+    """Handle admin list recipes - stub"""
+    await query.edit_message_text("Функция списка рецептов будет реализована в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+
+async def handle_admin_recipe_management(query, recipe_id: int, lang: str):
+    """Handle admin recipe management - stub"""
+    await query.edit_message_text(f"Управление рецептом {recipe_id} будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+
+async def handle_bind_recipe_to_models(query, recipe_id: int, lang: str):
+    """Handle bind recipe to models - stub"""
+    await query.edit_message_text(f"Привязка рецепта {recipe_id} к моделям будет реализована в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+
+async def handle_unbind_recipe_from_models(query, recipe_id: int, lang: str):
+    """Handle unbind recipe from models - stub"""
+    await query.edit_message_text(f"Отвязка рецепта {recipe_id} от моделей будет реализована в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+
+async def handle_confirm_bind_recipe(query, recipe_id: int, lang: str):
+    """Handle confirm bind recipe - stub"""
+    await query.edit_message_text(f"Подтверждение привязки рецепта {recipe_id} будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+
+async def handle_confirm_unbind_recipe(query, recipe_id: int, lang: str):
+    """Handle confirm unbind recipe - stub"""
+    await query.edit_message_text(f"Подтверждение отвязки рецепта {recipe_id} будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+
+async def handle_recipes(query, lang: str):
+    """Handle recipes - stub"""
+    await query.edit_message_text("Функция рецептов будет реализована в следующей версии.", reply_markup=main_menu_keyboard(lang))
+
+async def handle_model_recipes(query, model_id: int, lang: str):
+    """Handle model recipes - stub"""
+    await query.edit_message_text(f"Рецепты для модели {model_id} будут реализованы в следующей версии.", reply_markup=main_menu_keyboard(lang))
+
+async def handle_recipe_selected(query, context, recipe_id: int, lang: str):
+    """Handle recipe selected - stub"""
+    await query.answer("Функция выбора рецепта будет реализована в следующей версии.", show_alert=True)
+
+async def handle_download_recipes_package(query, context, model_id: int, lang: str):
+    """Handle download recipes package - stub"""
+    await query.answer("Функция скачивания рецептов будет реализована в следующей версии.", show_alert=True)
+
+async def handle_bind_recipe_model_to_new_recipe(query, model_id: int, lang: str):
+    """Handle bind recipe model to new recipe - stub"""
+    await query.answer("Функция привязки модели к новому рецепту будет реализована в следующей версии.", show_alert=True)
+
+async def handle_unbind_recipe_model_from_new_recipe(query, model_id: int, lang: str):
+    """Handle unbind recipe model from new recipe - stub"""
+    await query.answer("Функция отвязки модели от нового рецепта будет реализована в следующей версии.", show_alert=True)
+
+async def handle_confirm_create_recipe(query, lang: str):
+    """Handle confirm create recipe - stub"""
+    await query.edit_message_text("Подтверждение создания рецепта будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+
+async def handle_save_recipe(query, lang: str):
+    """Handle save recipe - stub"""
+    await query.edit_message_text("Сохранение рецепта будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+
 # ==================== MAIN FUNCTION ====================
 def main():
     """Main function"""
