@@ -339,7 +339,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_admin_open_tickets(query, lang)
         elif data == 'admin_ticket_stats':
             await handle_admin_ticket_stats(query, lang)
-        # Instruction type selection
+        # Instruction/Recipe type selection
         elif data.startswith('type_'):
             instruction_type = data.split('_')[1]
             await handle_instruction_type_selection(query, instruction_type, lang)
@@ -1004,21 +1004,21 @@ async def handle_back_step(query, lang: str):
             reply_markup=admin_menu_keyboard(lang)
         )
 async def handle_instruction_type_selection(query, instruction_type: str, lang: str):
-    """Handle instruction type selection"""
+    """Handle instruction/recipe type selection"""
     if not is_admin(query.from_user.id):
         await query.edit_message_text(get_text('access_denied', lang))
         return
     user_id = query.from_user.id
     # Check if user has state
     if user_id not in user_states:
-        logger.error(f"Admin {user_id} has no state when selecting instruction type")
+        logger.error(f"Admin {user_id} has no state when selecting type")
         await query.edit_message_text(
-            "Сессия истекла. Начните добавление инструкции заново.",
-            reply_markup=admin_instructions_keyboard(lang)
+            "Сессия истекла. Начните добавление заново.",
+            reply_markup=admin_menu_keyboard(lang)
         )
         return
     state = user_states[user_id]
-    logger.info(f"Admin {user_id} selected instruction type: '{instruction_type}'")
+    logger.info(f"Admin {user_id} selected type: '{instruction_type}'")
     logger.info(f"Admin {user_id} current state: {state.state}")
     logger.info(f"Admin {user_id} state data: {state.data}")
     # Map type to enum
@@ -1028,36 +1028,63 @@ async def handle_instruction_type_selection(query, instruction_type: str, lang: 
         'link': 'link'
     }
     if instruction_type not in type_mapping:
-        await query.answer("Неверный тип инструкции", show_alert=True)
+        await query.answer("Неверный тип", show_alert=True)
         return
     # Update state with type
     state.data['type'] = type_mapping[instruction_type]
-    # Different flow based on type
-    if instruction_type in ['pdf', 'video']:
-        # For file types, wait for file upload first
-        user_states[user_id] = UserState('ADD_INSTR_FILE_WAIT', state.data)
-        logger.info(f"Admin {user_id} state updated to: ADD_INSTR_FILE_WAIT")
-        await query.edit_message_text(
-            "📎 Пришлите файл (PDF, DOC, JPG, ZIP, MP4, AVI и т.д.)\n\n"
-            "Поддерживаемые форматы:\n"
-            "• PDF, DOC, DOCX\n"
-            "• JPG, PNG, GIF\n"
-            "• ZIP, RAR\n"
-            "• MP4, AVI, MOV (для видео)\n\n"
-            "Максимальный размер: 20 MB\n\n"
-            "Что дальше: После загрузки файла → описание → привязка к моделям",
-            reply_markup=back_cancel_keyboard(lang)
-        )
+    # Different flow based on current state and type
+    if state.state == 'ADD_INSTR_TYPE':
+        # Instruction flow
+        if instruction_type in ['pdf', 'video']:
+            user_states[user_id] = UserState('ADD_INSTR_FILE_WAIT', state.data)
+            logger.info(f"Admin {user_id} state updated to: ADD_INSTR_FILE_WAIT")
+            await query.edit_message_text(
+                "📎 Пришлите файл (PDF, DOC, JPG, ZIP, MP4, AVI и т.д.)\n\n"
+                "Поддерживаемые форматы:\n"
+                "• PDF, DOC, DOCX\n"
+                "• JPG, PNG, GIF\n"
+                "• ZIP, RAR\n"
+                "• MP4, AVI, MOV (для видео)\n\n"
+                "Максимальный размер: 20 MB\n\n"
+                "Что дальше: После загрузки файла → описание → привязка к моделям",
+                reply_markup=back_cancel_keyboard(lang)
+            )
+        else:
+            user_states[user_id] = UserState('ADD_INSTR_URL_WAIT', state.data)
+            logger.info(f"Admin {user_id} state updated to: ADD_INSTR_URL_WAIT")
+            await query.edit_message_text(
+                "🔗 Введите URL ссылки:\n\n"
+                "Пример: https://example.com/instruction.pdf\n\n"
+                "Что дальше: После ввода URL → описание → привязка к моделям",
+                reply_markup=back_cancel_keyboard(lang)
+            )
+    elif state.state == 'ADD_RECIPE_TYPE':
+        # Recipe flow
+        if instruction_type in ['pdf', 'video']:
+            user_states[user_id] = UserState('ADD_RECIPE_FILE_WAIT', state.data)
+            logger.info(f"Admin {user_id} state updated to: ADD_RECIPE_FILE_WAIT")
+            await query.edit_message_text(
+                "📎 Пришлите файл (PDF, DOC, JPG, ZIP, MP4, AVI и т.д.)\n\n"
+                "Поддерживаемые форматы:\n"
+                "• PDF, DOC, DOCX\n"
+                "• JPG, PNG, GIF\n"
+                "• ZIP, RAR\n"
+                "• MP4, AVI, MOV (для видео)\n\n"
+                "Максимальный размер: 20 MB\n\n"
+                "Что дальше: После загрузки файла → описание → привязка к моделям",
+                reply_markup=back_cancel_keyboard(lang)
+            )
+        else:
+            user_states[user_id] = UserState('ADD_RECIPE_URL_WAIT', state.data)
+            logger.info(f"Admin {user_id} state updated to: ADD_RECIPE_URL_WAIT")
+            await query.edit_message_text(
+                "🔗 Введите URL ссылки:\n\n"
+                "Пример: https://example.com/recipe.pdf\n\n"
+                "Что дальше: После ввода URL → описание → привязка к моделям",
+                reply_markup=back_cancel_keyboard(lang)
+            )
     else:
-        # For link type, go directly to URL input
-        user_states[user_id] = UserState('ADD_INSTR_URL_WAIT', state.data)
-        logger.info(f"Admin {user_id} state updated to: ADD_INSTR_URL_WAIT")
-        await query.edit_message_text(
-            "🔗 Введите URL ссылки:\n\n"
-            "Пример: https://example.com/instruction.pdf\n\n"
-            "Что дальше: После ввода URL → описание → привязка к моделям",
-            reply_markup=back_cancel_keyboard(lang)
-        )
+        await query.answer("Неизвестное состояние", show_alert=True)
 # ==================== MESSAGE HANDLERS ====================
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle text messages"""
@@ -1100,6 +1127,27 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif state.state == 'ADD_INSTR_CONFIRM':
                 logger.info(f"Processing ADD_INSTR_CONFIRM for user {user.id}")
                 await handle_admin_add_instruction_confirm(update, context, lang)
+            elif state.state == 'ADD_RECIPE_TITLE':
+                logger.info(f"Processing ADD_RECIPE_TITLE for user {user.id}")
+                await handle_admin_add_recipe_title(update, context, lang)
+            elif state.state == 'ADD_RECIPE_TYPE':
+                logger.info(f"Processing ADD_RECIPE_TYPE for user {user.id}")
+                await handle_admin_add_recipe_type(update, context, lang)
+            elif state.state == 'ADD_RECIPE_FILE_WAIT':
+                logger.info(f"Processing ADD_RECIPE_FILE_WAIT for user {user.id}")
+                await handle_admin_add_recipe_file_wait(update, context, lang)
+            elif state.state == 'ADD_RECIPE_URL_WAIT':
+                logger.info(f"Processing ADD_RECIPE_URL_WAIT for user {user.id}")
+                await handle_admin_add_recipe_url(update, context, lang)
+            elif state.state == 'ADD_RECIPE_DESC':
+                logger.info(f"Processing ADD_RECIPE_DESC for user {user.id}")
+                await handle_admin_add_recipe_description(update, context, lang)
+            elif state.state == 'ADD_RECIPE_BIND':
+                logger.info(f"Processing ADD_RECIPE_BIND for user {user.id}")
+                await handle_admin_add_recipe_bind(update, context, lang)
+            elif state.state == 'ADD_RECIPE_CONFIRM':
+                logger.info(f"Processing ADD_RECIPE_CONFIRM for user {user.id}")
+                await handle_admin_add_recipe_confirm(update, context, lang)
             else:
                 # Unknown admin state, clear it
                 logger.warning(f"Unknown admin state '{state.state}' for user {user.id}, clearing state")
@@ -1120,7 +1168,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     # Handle regular user states
     if user.id not in user_states:
-        # If admin is trying to enter text but has no state, they might be in the middle of adding instruction
+        # If admin is trying to enter text but has no state, they might be in the middle of adding instruction or recipe
         if is_admin(user.id) and update.message.text:
             logger.info(f"Admin {user.id} has no state but sent text: '{update.message.text}' - assuming instruction title")
             user_states[user.id] = UserState('ADD_INSTR_TITLE')
@@ -1499,6 +1547,181 @@ async def handle_admin_add_instruction_confirm(update: Update, context: ContextT
     user_id = update.effective_user.id
     state = user_states[user_id]
     logger.info(f"Admin {user_id} in confirmation step")
+    # This should be handled by callback queries, but just in case
+    await update.message.reply_text(
+        "Пожалуйста, используйте кнопки выше для подтверждения.",
+        reply_markup=back_cancel_keyboard(lang)
+    )
+
+# ==================== RECIPE CREATION HANDLERS ====================
+async def handle_admin_add_recipe_title(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add recipe title"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    user_id = update.effective_user.id
+    title = update.message.text
+    logger.info(f"Admin {user_id} entered recipe title: '{title}'")
+    # Always set the state, even if it was lost
+    user_states[user_id] = UserState('ADD_RECIPE_TYPE', {'title': title})
+    logger.info(f"Admin {user_id} state updated to: ADD_RECIPE_TYPE")
+    await update.message.reply_text(
+        get_text('recipe_type_prompt', lang),
+        reply_markup=instruction_type_keyboard(lang)  # Reuse instruction type keyboard
+    )
+
+async def handle_admin_add_recipe_type(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add recipe type selection"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    logger.info(f"Admin {user_id} in recipe type selection")
+    # This should be handled by callback queries, but just in case
+    await update.message.reply_text(
+        "Пожалуйста, используйте кнопки выше для выбора типа рецепта.",
+        reply_markup=instruction_type_keyboard(lang)
+    )
+
+async def handle_admin_add_recipe_file_wait(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add recipe file upload"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    logger.info(f"Admin {user_id} in handle_admin_add_recipe_file_wait")
+    # Check if user sent a file
+    tg_file_id = None
+    file_size = 0
+    file_name = ""
+    if update.message.document:
+        tg_file_id = update.message.document.file_id
+        file_size = update.message.document.file_size or 0
+        file_name = update.message.document.file_name or "document"
+        logger.info(f"Admin {user_id} sent document: {file_name}, size: {file_size}")
+    elif update.message.video:
+        tg_file_id = update.message.video.file_id
+        file_size = update.message.video.file_size or 0
+        file_name = update.message.video.file_name or "video"
+        logger.info(f"Admin {user_id} sent video: {file_name}, size: {file_size}")
+    elif update.message.photo:
+        tg_file_id = update.message.photo[-1].file_id
+        file_size = update.message.photo[-1].file_size or 0
+        file_name = "photo.jpg"  # Photos don't have file names
+        logger.info(f"Admin {user_id} sent photo, size: {file_size}")
+    else:
+        # User sent text instead of file
+        await update.message.reply_text(
+            "Пожалуйста, пришлите файл. Для отмены — нажмите ❌ Отмена.",
+            reply_markup=back_cancel_keyboard(lang)
+        )
+        return
+    # Check file size (20 MB limit)
+    if file_size > 20 * 1024 * 1024:  # 20 MB in bytes
+        await update.message.reply_text(
+            "Файл слишком большой (больше 20 MB). Загрузите через облако и используйте ссылку.",
+            reply_markup=back_cancel_keyboard(lang)
+        )
+        return
+    # Save file info and move to description
+    state.data['tg_file_id'] = tg_file_id
+    state.data['file_name'] = file_name
+    state.state = 'ADD_RECIPE_DESC'
+    user_states[user_id] = state
+    logger.info(f"Admin {user_id} state updated to: ADD_RECIPE_DESC")
+    await update.message.reply_text(
+        get_text('recipe_description_prompt', lang),
+        reply_markup=back_cancel_keyboard(lang)
+    )
+
+async def handle_admin_add_recipe_url(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add recipe URL"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    url = update.message.text
+    logger.info(f"Admin {user_id} entered recipe URL: '{url}'")
+    # Basic URL validation
+    if not url.startswith(('http://', 'https://')):
+        await update.message.reply_text(
+            "Пожалуйста, введите корректную ссылку (начинающуюся с http:// или https://).",
+            reply_markup=back_cancel_keyboard(lang)
+        )
+        return
+    # Save URL and move to description
+    state.data['url'] = url
+    state.state = 'ADD_RECIPE_DESC'
+    user_states[user_id] = state
+    logger.info(f"Admin {user_id} state updated to: ADD_RECIPE_DESC")
+    await update.message.reply_text(
+        get_text('recipe_description_prompt', lang),
+        reply_markup=back_cancel_keyboard(lang)
+    )
+
+async def handle_admin_add_recipe_description(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add recipe description"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    description = update.message.text
+    logger.info(f"Admin {user_id} entered recipe description: '{description}'")
+    # Save description and move to model binding
+    state.data['description'] = description
+    state.state = 'ADD_RECIPE_BIND'
+    user_states[user_id] = state
+    logger.info(f"Admin {user_id} state updated to: ADD_RECIPE_BIND")
+    # Show model selection
+    db = get_session()
+    try:
+        models_service = ModelsService(db)
+        models = models_service.get_models(page=0, limit=10)
+        if not models:
+            await update.message.reply_text(
+                "Нет доступных моделей. Рецепт будет создан без привязки к моделям.",
+                reply_markup=back_cancel_keyboard(lang)
+            )
+            return
+        await update.message.reply_text(
+            "Выберите модели для привязки рецепта:",
+            reply_markup=new_recipe_models_keyboard(models, [], 0, lang)
+        )
+    except Exception as e:
+        logger.error(f"Error in handle_admin_add_recipe_description: {e}")
+        await update.message.reply_text(
+            "Ошибка при загрузке моделей.",
+            reply_markup=back_cancel_keyboard(lang)
+        )
+    finally:
+        db.close()
+
+async def handle_admin_add_recipe_bind(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add recipe model binding"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    logger.info(f"Admin {user_id} in recipe binding step")
+    # This should be handled by callback queries, but just in case
+    await update.message.reply_text(
+        "Пожалуйста, используйте кнопки выше для выбора моделей.",
+        reply_markup=back_cancel_keyboard(lang)
+    )
+
+async def handle_admin_add_recipe_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
+    """Handle admin add recipe confirmation"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(get_text('access_denied', lang))
+        return
+    user_id = update.effective_user.id
+    state = user_states[user_id]
+    logger.info(f"Admin {user_id} in recipe confirmation step")
     # This should be handled by callback queries, but just in case
     await update.message.reply_text(
         "Пожалуйста, используйте кнопки выше для подтверждения.",
@@ -2597,20 +2820,168 @@ async def handle_download_recipes_package(query, context, model_id: int, lang: s
         db.close()
 
 async def handle_bind_recipe_model_to_new_recipe(query, model_id: int, lang: str):
-    """Handle bind recipe model to new recipe - stub"""
-    await query.answer("Функция привязки модели к новому рецепту будет реализована в следующей версии.", show_alert=True)
+    """Handle binding model to new recipe"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    user_id = query.from_user.id
+    if user_id not in user_states:
+        await query.edit_message_text("Сессия истекла. Начните заново.", reply_markup=admin_menu_keyboard(lang))
+        return
+    state = user_states[user_id]
+    if state.state != 'ADD_RECIPE_BIND':
+        await query.edit_message_text("Неверное состояние. Начните заново.", reply_markup=admin_menu_keyboard(lang))
+        return
+    # Add model to selected models
+    if 'selected_models' not in state.data:
+        state.data['selected_models'] = []
+    if model_id not in state.data['selected_models']:
+        state.data['selected_models'].append(model_id)
+    logger.info(f"Admin {user_id} selected model {model_id} for recipe, total: {len(state.data['selected_models'])}")
+    # Update keyboard with new selection
+    db = get_session()
+    try:
+        models_service = ModelsService(db)
+        models = models_service.get_models(page=0, limit=100)
+        await query.edit_message_reply_markup(
+            reply_markup=new_recipe_models_keyboard(models, state.data['selected_models'], 0, lang)
+        )
+    finally:
+        db.close()
 
 async def handle_unbind_recipe_model_from_new_recipe(query, model_id: int, lang: str):
-    """Handle unbind recipe model from new recipe - stub"""
-    await query.answer("Функция отвязки модели от нового рецепта будет реализована в следующей версии.", show_alert=True)
+    """Handle unbinding model from new recipe"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    user_id = query.from_user.id
+    if user_id not in user_states:
+        await query.edit_message_text("Сессия истекла. Начните заново.", reply_markup=admin_menu_keyboard(lang))
+        return
+    state = user_states[user_id]
+    if state.state != 'ADD_RECIPE_BIND':
+        await query.edit_message_text("Неверное состояние. Начните заново.", reply_markup=admin_menu_keyboard(lang))
+        return
+    # Remove model from selected models
+    if 'selected_models' in state.data and model_id in state.data['selected_models']:
+        state.data['selected_models'].remove(model_id)
+    logger.info(f"Admin {user_id} unselected model {model_id} for recipe, total: {len(state.data.get('selected_models', []))}")
+    # Update keyboard with new selection
+    db = get_session()
+    try:
+        models_service = ModelsService(db)
+        models = models_service.get_models(page=0, limit=100)
+        await query.edit_message_reply_markup(
+            reply_markup=new_recipe_models_keyboard(models, state.data.get('selected_models', []), 0, lang)
+        )
+    finally:
+        db.close()
 
 async def handle_confirm_create_recipe(query, lang: str):
-    """Handle confirm create recipe - stub"""
-    await query.edit_message_text("Подтверждение создания рецепта будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+    """Handle confirm create recipe"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    user_id = query.from_user.id
+    if user_id not in user_states:
+        await query.edit_message_text("Сессия истекла. Начните заново.", reply_markup=admin_menu_keyboard(lang))
+        return
+    state = user_states[user_id]
+    if state.state != 'ADD_RECIPE_BIND':
+        await query.edit_message_text("Неверное состояние. Начните заново.", reply_markup=admin_menu_keyboard(lang))
+        return
+    # Show confirmation with recipe details
+    title = state.data.get('title', 'Без названия')
+    recipe_type = state.data.get('type', 'unknown')
+    description = state.data.get('description', 'Без описания')
+    selected_models = state.data.get('selected_models', [])
+    # Get model names
+    db = get_session()
+    try:
+        models_service = ModelsService(db)
+        models = models_service.get_models(page=0, limit=100)
+        model_names = [model.name for model in models if model.id in selected_models]
+        models_text = ", ".join(model_names) if model_names else "Не привязан"
+    except Exception as e:
+        logger.error(f"Error getting model names: {e}")
+        models_text = f"{len(selected_models)} моделей"
+    finally:
+        db.close()
+    # Show confirmation
+    text = f"📋 <b>Подтверждение создания рецепта</b>\n\n"
+    text += f"📝 <b>Название:</b> {title}\n"
+    text += f"📄 <b>Тип:</b> {recipe_type.upper()}\n"
+    text += f"📄 <b>Описание:</b> {description}\n"
+    text += f"🔗 <b>Привязан к моделям:</b> {models_text}\n\n"
+    text += "Создать рецепт?"
+    # Create confirmation keyboard
+    buttons = [
+        [InlineKeyboardButton("✅ Создать", callback_data='save_recipe')],
+        [InlineKeyboardButton("⬅️ Назад", callback_data='back_step')],
+        [InlineKeyboardButton("❌ Отмена", callback_data='cancel')]
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+    await query.edit_message_text(text, reply_markup=keyboard)
 
 async def handle_save_recipe(query, lang: str):
-    """Handle save recipe - stub"""
-    await query.edit_message_text("Сохранение рецепта будет реализовано в следующей версии.", reply_markup=admin_recipes_keyboard(lang))
+    """Handle save recipe"""
+    if not is_admin(query.from_user.id):
+        await query.edit_message_text(get_text('access_denied', lang))
+        return
+    user_id = query.from_user.id
+    if user_id not in user_states:
+        await query.edit_message_text("Сессия истекла. Начните заново.", reply_markup=admin_menu_keyboard(lang))
+        return
+    state = user_states[user_id]
+    if state.state != 'ADD_RECIPE_BIND':
+        await query.edit_message_text("Неверное состояние. Начните заново.", reply_markup=admin_menu_keyboard(lang))
+        return
+    # Create recipe
+    db = get_session()
+    try:
+        recipes_service = RecipesService(db)
+        # Get recipe data
+        title = state.data.get('title', 'Без названия')
+        recipe_type = state.data.get('type', 'pdf')
+        description = state.data.get('description', '')
+        tg_file_id = state.data.get('tg_file_id')
+        url = state.data.get('url')
+        selected_models = state.data.get('selected_models', [])
+        # Map type string to enum
+        from models import InstructionType
+        type_mapping = {
+            'pdf': InstructionType.PDF,
+            'video': InstructionType.VIDEO,
+            'link': InstructionType.LINK
+        }
+        recipe_type_enum = type_mapping.get(recipe_type, InstructionType.PDF)
+        # Create recipe
+        recipe = recipes_service.create_recipe(
+            title=title,
+            recipe_type=recipe_type_enum,
+            description=description,
+            tg_file_id=tg_file_id,
+            url=url
+        )
+        # Bind to models if any selected
+        if selected_models:
+            recipes_service.bind_recipe_to_models(recipe.id, selected_models)
+        # Clear user state
+        del user_states[user_id]
+        # Show success message
+        await query.edit_message_text(
+            get_text('recipe_created', lang, title=recipe.title),
+            reply_markup=admin_recipes_keyboard(lang)
+        )
+        logger.info(f"Admin {user_id} created recipe: {recipe.id} - {recipe.title}")
+    except Exception as e:
+        logger.error(f"Error creating recipe: {e}")
+        await query.edit_message_text(
+            "Ошибка при создании рецепта. Попробуйте снова.",
+            reply_markup=admin_recipes_keyboard(lang)
+        )
+    finally:
+        db.close()
 
 # ==================== MAIN FUNCTION ====================
 def main():
