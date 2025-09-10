@@ -960,7 +960,7 @@ async def handle_instruction_type_selection(query, instruction_type: str, lang: 
     # Update state with type
     state.data['type'] = type_mapping[instruction_type]
     # Different flow based on type
-    if instruction_type in [InstructionType.PDF, InstructionType.VIDEO]:
+    if instruction_type in ['pdf', 'video']:
         # For file types, wait for file upload first
         user_states[user_id] = UserState('ADD_INSTR_FILE_WAIT', state.data)
         logger.info(f"Admin {user_id} state updated to: ADD_INSTR_FILE_WAIT")
@@ -984,7 +984,7 @@ async def handle_instruction_type_selection(query, instruction_type: str, lang: 
             "Пример: https://example.com/instruction.pdf\n\n"
             "Что дальше: После ввода URL → описание → привязка к моделям",
             reply_markup=back_cancel_keyboard(lang)
-    )
+        )
 # ==================== MESSAGE HANDLERS ====================
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle text messages"""
