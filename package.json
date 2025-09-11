@@ -1,0 +1,13 @@
+{
+  "name": "telegram-mini-app",
+  "version": "1.0.0",
+  "description": "Telegram Mini App for gakshop.com",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'Static site - no build needed'",
+    "start": "echo 'Static site - no start needed'"
+  },
+  "keywords": ["telegram", "mini-app", "webapp"],
+  "author": "semegn89",
+  "license": "MIT"
+}
