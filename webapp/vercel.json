@@ -2,23 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "wsgi.py",
+      "src": "api.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/wsgi.py"
+      "dest": "/api.py"
     },
     {
       "src": "/(.*)",
       "dest": "/$1"
     }
-  ],
-  "env": {
-    "DB_URL": "@db_url",
-    "BOT_TOKEN": "@bot_token",
-    "ADMIN_CHAT_IDS": "@admin_chat_ids"
-  }
+  ]
 }

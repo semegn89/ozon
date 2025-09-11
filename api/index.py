@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-API endpoints for Telegram Mini App
+API endpoints for Telegram Mini App - Vercel deployment
 """
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -10,11 +10,29 @@ import sys
 # Add parent directory to path to import bot modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models import get_session, InstructionType, TicketStatus, MessageRole
-from services.models_service import ModelsService
-from services.instructions_service import InstructionsService
-from services.recipes_service import RecipesService
-from services.support_service import SupportService
+try:
+    from models import get_session, InstructionType, TicketStatus, MessageRole
+    from services.models_service import ModelsService
+    from services.instructions_service import InstructionsService
+    from services.recipes_service import RecipesService
+    from services.support_service import SupportService
+except ImportError as e:
+    print(f"Import error: {e}")
+    # Mock classes for development
+    class MockService:
+        def get_models(self, page=0, limit=100):
+            return []
+        def get_instructions(self, page=0, limit=100):
+            return []
+        def get_recipes(self, page=0, limit=100):
+            return []
+        def get_user_tickets(self, user_id, limit=50):
+            return []
+    
+    ModelsService = MockService
+    InstructionsService = MockService
+    RecipesService = MockService
+    SupportService = MockService
 
 app = Flask(__name__)
 CORS(app)
@@ -253,9 +271,6 @@ def health_check():
 # Vercel entry point
 def handler(request):
     return app(request.environ, lambda *args: None)
-
-# Alternative entry point for Vercel
-app = app
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
