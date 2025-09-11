@@ -3,139 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAG Shop - Инструкции и Рецепты</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>OZON - Техническая поддержка</title>
+    <meta name="description" content="Техническая поддержка и инструкции для устройств">
+    <meta name="theme-color" content="#667eea">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        
+        .status {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            display: inline-block;
+            margin: 20px 0;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .info {
+            color: #666;
+            line-height: 1.8;
+            margin: 20px 0;
+        }
+        
+        .api-test {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 8px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .telegram-info {
+            color: #0088cc;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        
+        .models-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .model-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .model-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .model-description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .model-tags {
+            color: #007bff;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <h1>🏪 SAG Shop</h1>
-                <p>Инструкции и рецепты для ваших моделей</p>
-            </div>
-        </header>
-
-        <!-- Loading Screen -->
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>Загрузка...</p>
+    <div class="container">
+        <h1>🚀 Telegram Mini App</h1>
+        
+        <div class="status">
+            ✅ Работает на gakshop.com!
         </div>
-
-        <!-- Main Content -->
-        <div id="main-content" class="main-content" style="display: none;">
-            <!-- API Test Section -->
-            <div class="api-test-section">
-                <h3>🔧 Тест API</h3>
-                <div class="api-buttons">
-                    <button class="btn btn-primary" onclick="testAPI()">Тест API</button>
-                    <button class="btn btn-secondary" onclick="loadModels()">Получить модели</button>
-                </div>
-                <div id="api-result" class="api-result"></div>
-            </div>
-            
-            <!-- Navigation -->
-            <nav class="nav-tabs">
-                <button class="nav-tab active" data-tab="models">📱 Модели</button>
-                <button class="nav-tab" data-tab="instructions">📄 Инструкции</button>
-                <button class="nav-tab" data-tab="recipes">🍳 Рецепты</button>
-                <button class="nav-tab" data-tab="support">🆘 Поддержка</button>
-            </nav>
-
-            <!-- Models Tab -->
-            <div id="models-tab" class="tab-content active">
-                <div class="search-box">
-                    <input type="text" id="search-input" placeholder="🔍 Поиск моделей...">
-                </div>
-                <div id="models-list" class="models-list">
-                    <!-- Models will be loaded here -->
-                </div>
-            </div>
-
-            <!-- Instructions Tab -->
-            <div id="instructions-tab" class="tab-content">
-                <div class="search-box">
-                    <input type="text" id="instructions-search" placeholder="🔍 Поиск инструкций...">
-                </div>
-                <div id="instructions-list" class="instructions-list">
-                    <!-- Instructions will be loaded here -->
-                </div>
-            </div>
-
-            <!-- Recipes Tab -->
-            <div id="recipes-tab" class="tab-content">
-                <div class="search-box">
-                    <input type="text" id="recipes-search" placeholder="🔍 Поиск рецептов...">
-                </div>
-                <div id="recipes-list" class="recipes-list">
-                    <!-- Recipes will be loaded here -->
-                </div>
-            </div>
-
-            <!-- Support Tab -->
-            <div id="support-tab" class="tab-content">
-                <div class="support-content">
-                    <h3>🆘 Служба поддержки</h3>
-                    <p>Есть вопросы? Создайте обращение и мы поможем!</p>
-                    
-                    <div id="ticket-form" class="ticket-form">
-                        <textarea id="ticket-message" placeholder="Опишите вашу проблему или вопрос..."></textarea>
-                        <button id="create-ticket" class="btn btn-primary">Создать обращение</button>
-                    </div>
-
-                    <div id="ticket-history" class="ticket-history" style="display: none;">
-                        <h4>Ваши обращения</h4>
-                        <div id="tickets-list"></div>
-                    </div>
-                </div>
-            </div>
+        
+        <div class="info">
+            <strong>Домен:</strong> gakshop.com<br>
+            <strong>Время:</strong> <span id="current-time"></span><br>
+            <strong>Статус:</strong> Развернуто на Vercel
         </div>
-
-        <!-- Model Details Modal -->
-        <div id="model-modal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 id="modal-title">Детали модели</h3>
-                    <button class="close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div id="model-info"></div>
-                    <div id="model-instructions"></div>
-                    <div id="model-recipes"></div>
-                </div>
-            </div>
+        
+        <div class="api-test">
+            <h3>🔧 Тест API</h3>
+            <button class="btn" onclick="testAPI()">Тест API</button>
+            <button class="btn" onclick="loadModels()">Получить модели</button>
+            <div id="result" class="result" style="display: none;"></div>
         </div>
-
-        <!-- Instruction Details Modal -->
-        <div id="instruction-modal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 id="instruction-modal-title">Инструкция</h3>
-                    <button class="close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div id="instruction-info"></div>
-                    <div id="instruction-actions"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Recipe Details Modal -->
-        <div id="recipe-modal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 id="recipe-modal-title">Рецепт</h3>
-                    <button class="close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div id="recipe-info"></div>
-                    <div id="recipe-actions"></div>
-                </div>
-            </div>
+        
+        <div class="telegram-info">
+            📱 Telegram Mini App готов к работе!
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('ru-RU');
+            document.getElementById('current-time').textContent = timeString;
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // API Test Functions
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = 'Тестирование API...';
+            
+            try {
+                const response = await fetch('/api/test');
+                const data = await response.json();
+                
+                resultDiv.innerHTML = JSON.stringify(data, null, 2);
+                resultDiv.style.background = '#d4edda';
+                resultDiv.style.color = '#155724';
+            } catch (error) {
+                resultDiv.innerHTML = `Ошибка: ${error.message}`;
+                resultDiv.style.background = '#f8d7da';
+                resultDiv.style.color = '#721c24';
+            }
+        }
+        
+        async function loadModels() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = 'Загрузка моделей...';
+            
+            try {
+                const response = await fetch('/api/models');
+                const data = await response.json();
+                
+                resultDiv.innerHTML = JSON.stringify(data, null, 2);
+                resultDiv.style.background = '#d4edda';
+                resultDiv.style.color = '#155724';
+            } catch (error) {
+                resultDiv.innerHTML = `Ошибка: ${error.message}`;
+                resultDiv.style.background = '#f8d7da';
+                resultDiv.style.color = '#721c24';
+            }
+        }
+    </script>
 </body>
 </html>
