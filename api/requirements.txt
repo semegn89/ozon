@@ -1,0 +1,3 @@
+# Vercel Python API dependencies
+# No external dependencies needed for in-memory storage
+# Just basic Python standard library

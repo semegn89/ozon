@@ -124,9 +124,13 @@ STORAGE = {
 def handler(request):
     """Vercel serverless function handler"""
     
+    # Vercel passes request as a dictionary
     path = request.get('path', '/')
     method = request.get('httpMethod', 'GET')
     body = request.get('body', '')
+    
+    # Handle query parameters
+    query_params = request.get('queryStringParameters', {}) or {}
     
     # CORS headers
     headers = {
@@ -154,6 +158,19 @@ def handler(request):
                         'recipes': len(STORAGE['recipes']),
                         'tickets': len(STORAGE['tickets'])
                     }
+                })
+            }
+        
+        # Simple test endpoint
+        if path == '/api/test':
+            return {
+                'statusCode': 200,
+                'headers': headers,
+                'body': json.dumps({
+                    'message': 'API is working!',
+                    'path': path,
+                    'method': method,
+                    'timestamp': datetime.now().isoformat()
                 })
             }
         
@@ -357,7 +374,7 @@ def handler(request):
         # Tickets endpoints
         elif path == '/api/tickets':
             if method == 'GET':
-                user_id = request.get('queryStringParameters', {}).get('user_id')
+                user_id = query_params.get('user_id')
                 if user_id:
                     user_tickets = [t for t in STORAGE['tickets'] if t['user_id'] == int(user_id)]
                     return {
