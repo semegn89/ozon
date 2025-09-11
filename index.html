@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAG Shop - Инструкции и Рецепты</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>🏪 SAG Shop</h1>
+                <p>Инструкции и рецепты для ваших моделей</p>
+            </div>
+        </header>
+
+        <!-- Loading Screen -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+
+        <!-- Main Content -->
+        <div id="main-content" class="main-content" style="display: none;">
+            <!-- API Test Section -->
+            <div class="api-test-section">
+                <h3>🔧 Тест API</h3>
+                <div class="api-buttons">
+                    <button class="btn btn-primary" onclick="testAPI()">Тест API</button>
+                    <button class="btn btn-secondary" onclick="loadModels()">Получить модели</button>
+                </div>
+                <div id="api-result" class="api-result"></div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-tab="models">📱 Модели</button>
+                <button class="nav-tab" data-tab="instructions">📄 Инструкции</button>
+                <button class="nav-tab" data-tab="recipes">🍳 Рецепты</button>
+                <button class="nav-tab" data-tab="support">🆘 Поддержка</button>
+            </nav>
+
+            <!-- Models Tab -->
+            <div id="models-tab" class="tab-content active">
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="🔍 Поиск моделей...">
+                </div>
+                <div id="models-list" class="models-list">
+                    <!-- Models will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Instructions Tab -->
+            <div id="instructions-tab" class="tab-content">
+                <div class="search-box">
+                    <input type="text" id="instructions-search" placeholder="🔍 Поиск инструкций...">
+                </div>
+                <div id="instructions-list" class="instructions-list">
+                    <!-- Instructions will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Recipes Tab -->
+            <div id="recipes-tab" class="tab-content">
+                <div class="search-box">
+                    <input type="text" id="recipes-search" placeholder="🔍 Поиск рецептов...">
+                </div>
+                <div id="recipes-list" class="recipes-list">
+                    <!-- Recipes will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Support Tab -->
+            <div id="support-tab" class="tab-content">
+                <div class="support-content">
+                    <h3>🆘 Служба поддержки</h3>
+                    <p>Есть вопросы? Создайте обращение и мы поможем!</p>
+                    
+                    <div id="ticket-form" class="ticket-form">
+                        <textarea id="ticket-message" placeholder="Опишите вашу проблему или вопрос..."></textarea>
+                        <button id="create-ticket" class="btn btn-primary">Создать обращение</button>
+                    </div>
+
+                    <div id="ticket-history" class="ticket-history" style="display: none;">
+                        <h4>Ваши обращения</h4>
+                        <div id="tickets-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Details Modal -->
+        <div id="model-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">Детали модели</h3>
+                    <button class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="model-info"></div>
+                    <div id="model-instructions"></div>
+                    <div id="model-recipes"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instruction Details Modal -->
+        <div id="instruction-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="instruction-modal-title">Инструкция</h3>
+                    <button class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="instruction-info"></div>
+                    <div id="instruction-actions"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recipe Details Modal -->
+        <div id="recipe-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="recipe-modal-title">Рецепт</h3>
+                    <button class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="recipe-info"></div>
+                    <div id="recipe-actions"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
