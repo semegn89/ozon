@@ -1,4 +1,4 @@
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from models import Model, Instruction, Ticket, TicketStatus, InstructionType
 from texts import get_text
 from typing import List, Optional
@@ -7,6 +7,7 @@ import math
 def main_menu_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     """Main menu keyboard"""
     buttons = [
+        [InlineKeyboardButton("🌐 Открыть приложение", web_app=WebAppInfo(url="https://your-domain.com/webapp/"))],
         [InlineKeyboardButton(get_text('choose_model', lang), callback_data='choose_model')],
         [InlineKeyboardButton(get_text('instructions', lang), callback_data='instructions')],
         [InlineKeyboardButton(get_text('recipes', lang), callback_data='recipes')],
