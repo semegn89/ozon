@@ -1,261 +1,234 @@
 #!/usr/bin/env python3
 """
-API endpoints for Telegram Mini App
+API endpoints for Telegram Mini App - Vercel deployment
+Mock data for quick deployment
 """
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import os
-import sys
-
-# Add parent directory to path to import bot modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from models import get_session, InstructionType, TicketStatus, MessageRole
-from services.models_service import ModelsService
-from services.instructions_service import InstructionsService
-from services.recipes_service import RecipesService
-from services.support_service import SupportService
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
 
+# Mock data - in production, this would be a database
+MOCK_DATA = {
+    'models': [
+        {
+            'id': 1,
+            'name': 'iPhone 15 Pro',
+            'description': 'Новейший смартфон от Apple с титановым корпусом и чипом A17 Pro',
+            'tags': 'apple, iphone, смартфон, титан',
+            'created_at': '2024-01-01T00:00:00Z',
+            'instructions_count': 3,
+            'recipes_count': 2
+        },
+        {
+            'id': 2,
+            'name': 'Samsung Galaxy S24',
+            'description': 'Флагманский Android смартфон с ИИ функциями и камерой 200MP',
+            'tags': 'samsung, android, смартфон, камера',
+            'created_at': '2024-01-01T00:00:00Z',
+            'instructions_count': 2,
+            'recipes_count': 1
+        },
+        {
+            'id': 3,
+            'name': 'MacBook Pro M3',
+            'description': 'Мощный ноутбук для профессионалов с чипом M3 и дисплеем Liquid Retina XDR',
+            'tags': 'apple, macbook, ноутбук, m3',
+            'created_at': '2024-01-01T00:00:00Z',
+            'instructions_count': 4,
+            'recipes_count': 3
+        },
+        {
+            'id': 4,
+            'name': 'iPad Pro 12.9"',
+            'description': 'Профессиональный планшет с чипом M2 и дисплеем Liquid Retina XDR',
+            'tags': 'apple, ipad, планшет, m2',
+            'created_at': '2024-01-01T00:00:00Z',
+            'instructions_count': 2,
+            'recipes_count': 1
+        }
+    ],
+    'instructions': [
+        {
+            'id': 1,
+            'title': 'Настройка iPhone 15 Pro',
+            'type': 'pdf',
+            'description': 'Подробная инструкция по настройке нового iPhone',
+            'model_id': 1,
+            'created_at': '2024-01-01T00:00:00Z'
+        },
+        {
+            'id': 2,
+            'title': 'Перенос данных на iPhone',
+            'type': 'video',
+            'description': 'Видео-инструкция по переносу данных с предыдущего устройства',
+            'model_id': 1,
+            'created_at': '2024-01-01T00:00:00Z'
+        },
+        {
+            'id': 3,
+            'title': 'Настройка Samsung Galaxy S24',
+            'type': 'pdf',
+            'description': 'Инструкция по настройке Samsung Galaxy',
+            'model_id': 2,
+            'created_at': '2024-01-01T00:00:00Z'
+        },
+        {
+            'id': 4,
+            'title': 'Настройка MacBook Pro M3',
+            'type': 'pdf',
+            'description': 'Первоначальная настройка MacBook',
+            'model_id': 3,
+            'created_at': '2024-01-01T00:00:00Z'
+        }
+    ],
+    'recipes': [
+        {
+            'id': 1,
+            'title': 'Рецепт восстановления iPhone',
+            'type': 'video',
+            'description': 'Пошаговое восстановление iPhone через iTunes',
+            'model_id': 1,
+            'created_at': '2024-01-01T00:00:00Z'
+        },
+        {
+            'id': 2,
+            'title': 'Рецепт оптимизации MacBook',
+            'type': 'pdf',
+            'description': 'Способы оптимизации производительности MacBook',
+            'model_id': 3,
+            'created_at': '2024-01-01T00:00:00Z'
+        }
+    ],
+    'tickets': [
+        {
+            'id': 1,
+            'user_id': 123456,
+            'username': 'test_user',
+            'status': 'open',
+            'subject': 'Проблема с настройкой iPhone',
+            'created_at': '2024-01-01T00:00:00Z',
+            'closed_at': None,
+            'messages': [
+                {
+                    'id': 1,
+                    'from_role': 'user',
+                    'text': 'Не могу настроить Face ID на новом iPhone',
+                    'created_at': '2024-01-01T00:00:00Z'
+                }
+            ]
+        }
+    ]
+}
+
+@app.route('/api/test', methods=['GET'])
+def test_api():
+    """Test endpoint"""
+    return jsonify({
+        'message': 'API is working!',
+        'status': 'ok',
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'ok',
+        'timestamp': datetime.now().isoformat(),
+        'storage': {
+            'models': len(MOCK_DATA['models']),
+            'instructions': len(MOCK_DATA['instructions']),
+            'recipes': len(MOCK_DATA['recipes']),
+            'tickets': len(MOCK_DATA['tickets'])
+        }
+    })
+
 @app.route('/api/models', methods=['GET'])
 def get_models():
     """Get all models"""
-    try:
-        db = get_session()
-        try:
-            models_service = ModelsService(db)
-            models = models_service.get_models(page=0, limit=100)
-            
-            # Convert to JSON-serializable format
-            result = []
-            for model in models:
-                model_data = {
-                    'id': model.id,
-                    'name': model.name,
-                    'description': model.description,
-                    'tags': model.tags,
-                    'created_at': model.created_at.isoformat() if model.created_at else None,
-                    'updated_at': model.updated_at.isoformat() if model.updated_at else None,
-                    'instructions': [{'id': inst.id} for inst in model.instructions]
-                }
-                result.append(model_data)
-            
-            return jsonify(result)
-        finally:
-            db.close()
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify(MOCK_DATA['models'])
+
+@app.route('/api/models/<int:model_id>', methods=['GET'])
+def get_model_detail(model_id):
+    """Get model with instructions and recipes"""
+    model = next((m for m in MOCK_DATA['models'] if m['id'] == model_id), None)
+    if not model:
+        return jsonify({'error': 'Model not found'}), 404
+    
+    # Add related instructions and recipes
+    model['instructions'] = [i for i in MOCK_DATA['instructions'] if i['model_id'] == model_id]
+    model['recipes'] = [r for r in MOCK_DATA['recipes'] if r['model_id'] == model_id]
+    
+    return jsonify(model)
 
 @app.route('/api/instructions', methods=['GET'])
 def get_instructions():
     """Get all instructions"""
-    try:
-        db = get_session()
-        try:
-            instructions_service = InstructionsService(db)
-            instructions = instructions_service.get_instructions(page=0, limit=100)
-            
-            result = []
-            for instruction in instructions:
-                instruction_data = {
-                    'id': instruction.id,
-                    'title': instruction.title,
-                    'type': instruction.type.value if instruction.type else None,
-                    'description': instruction.description,
-                    'tg_file_id': instruction.tg_file_id,
-                    'url': instruction.url,
-                    'created_at': instruction.created_at.isoformat() if instruction.created_at else None,
-                    'updated_at': instruction.updated_at.isoformat() if instruction.updated_at else None,
-                    'models': [{'id': model.id} for model in instruction.models]
-                }
-                result.append(instruction_data)
-            
-            return jsonify(result)
-        finally:
-            db.close()
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify(MOCK_DATA['instructions'])
 
 @app.route('/api/recipes', methods=['GET'])
 def get_recipes():
     """Get all recipes"""
-    try:
-        db = get_session()
-        try:
-            recipes_service = RecipesService(db)
-            recipes = recipes_service.get_recipes(page=0, limit=100)
-            
-            result = []
-            for recipe in recipes:
-                recipe_data = {
-                    'id': recipe.id,
-                    'title': recipe.title,
-                    'type': recipe.type.value if recipe.type else None,
-                    'description': recipe.description,
-                    'tg_file_id': recipe.tg_file_id,
-                    'url': recipe.url,
-                    'created_at': recipe.created_at.isoformat() if recipe.created_at else None,
-                    'updated_at': recipe.updated_at.isoformat() if recipe.updated_at else None,
-                    'models': [{'id': model.id} for model in recipe.models]
-                }
-                result.append(recipe_data)
-            finally:
-                db.close()
-            
-            return jsonify(result)
-        finally:
-            db.close()
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify(MOCK_DATA['recipes'])
 
 @app.route('/api/tickets', methods=['GET'])
 def get_tickets():
-    """Get user tickets"""
-    try:
-        user_id = request.args.get('user_id', type=int)
-        if not user_id:
-            return jsonify({'error': 'user_id required'}), 400
-        
-        db = get_session()
-        try:
-            support_service = SupportService(db)
-            tickets = support_service.get_user_tickets(user_id, limit=50)
-            
-            result = []
-            for ticket in tickets:
-                messages = support_service.get_ticket_messages(ticket.id)
-                ticket_data = {
-                    'id': ticket.id,
-                    'user_id': ticket.user_id,
-                    'username': ticket.username,
-                    'status': ticket.status.value if ticket.status else None,
-                    'subject': ticket.subject,
-                    'created_at': ticket.created_at.isoformat() if ticket.created_at else None,
-                    'closed_at': ticket.closed_at.isoformat() if ticket.closed_at else None,
-                    'messages': [
-                        {
-                            'id': msg.id,
-                            'from_role': msg.from_role.value if msg.from_role else None,
-                            'text': msg.text,
-                            'created_at': msg.created_at.isoformat() if msg.created_at else None
-                        } for msg in messages
-                    ]
-                }
-                result.append(ticket_data)
-            
-            return jsonify(result)
-        finally:
-            db.close()
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    """Get tickets for user"""
+    user_id = request.args.get('user_id')
+    if user_id:
+        user_tickets = [t for t in MOCK_DATA['tickets'] if t['user_id'] == int(user_id)]
+        return jsonify(user_tickets)
+    return jsonify(MOCK_DATA['tickets'])
 
 @app.route('/api/tickets', methods=['POST'])
 def create_ticket():
     """Create new ticket"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'JSON data required'}), 400
-        
-        user_id = data.get('user_id')
-        username = data.get('username')
-        subject = data.get('subject', '')
-        message = data.get('message', '')
-        
-        if not user_id or not message:
-            return jsonify({'error': 'user_id and message required'}), 400
-        
-        db = get_session()
-        try:
-            support_service = SupportService(db)
-            
-            # Create ticket
-            ticket = support_service.create_ticket(
-                user_id=user_id,
-                username=username,
-                subject=subject
-            )
-            
-            # Add first message
-            support_service.add_ticket_message(
-                ticket_id=ticket.id,
-                from_role=MessageRole.USER,
-                text=message
-            )
-            
-            return jsonify({
-                'id': ticket.id,
-                'status': ticket.status.value,
-                'created_at': ticket.created_at.isoformat()
-            })
-        finally:
-            db.close()
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    data = request.json
+    new_ticket = {
+        'id': max([t['id'] for t in MOCK_DATA['tickets']], default=0) + 1,
+        'user_id': data.get('user_id'),
+        'username': data.get('username'),
+        'subject': data.get('subject', ''),
+        'status': 'open',
+        'created_at': datetime.now().isoformat(),
+        'closed_at': None,
+        'messages': [{
+            'id': 1,
+            'from_role': 'user',
+            'text': data.get('message', ''),
+            'created_at': datetime.now().isoformat()
+        }]
+    }
+    MOCK_DATA['tickets'].append(new_ticket)
+    return jsonify(new_ticket), 201
 
-@app.route('/api/instruction/<int:instruction_id>/download', methods=['GET'])
-def download_instruction(instruction_id):
-    """Download instruction file"""
-    try:
-        db = get_session()
-        try:
-            instructions_service = InstructionsService(db)
-            instruction = instructions_service.get_instruction_by_id(instruction_id)
-            
-            if not instruction:
-                return jsonify({'error': 'Instruction not found'}), 404
-            
-            if not instruction.tg_file_id:
-                return jsonify({'error': 'File not available'}), 404
-            
-            return jsonify({
-                'tg_file_id': instruction.tg_file_id,
-                'title': instruction.title,
-                'type': instruction.type.value if instruction.type else None
-            })
-        finally:
-            db.close()
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/recipe/<int:recipe_id>/download', methods=['GET'])
-def download_recipe(recipe_id):
-    """Download recipe file"""
-    try:
-        db = get_session()
-        try:
-            recipes_service = RecipesService(db)
-            recipe = recipes_service.get_recipe_by_id(recipe_id)
-            
-            if not recipe:
-                return jsonify({'error': 'Recipe not found'}), 404
-            
-            if not recipe.tg_file_id:
-                return jsonify({'error': 'File not available'}), 404
-            
-            return jsonify({
-                'tg_file_id': recipe.tg_file_id,
-                'title': recipe.title,
-                'type': recipe.type.value if recipe.type else None
-            })
-        finally:
-            db.close()
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({'status': 'ok', 'service': 'webapp-api'})
-
-# Vercel entry point
-def handler(request):
-    return app(request.environ, lambda *args: None)
-
-# Alternative entry point for Vercel
-app = app
+@app.route('/api/search', methods=['POST'])
+def search():
+    """Search in all data"""
+    data = request.json
+    query = data.get('query', '').strip().lower()
+    
+    if not query:
+        return jsonify({'error': 'Query is required'}), 400
+    
+    results = {
+        'query': query,
+        'models': [m for m in MOCK_DATA['models'] 
+                  if query in m['name'].lower() or 
+                     query in m['description'].lower() or 
+                     query in m['tags'].lower()],
+        'instructions': [i for i in MOCK_DATA['instructions'] 
+                       if query in i['title'].lower() or 
+                          query in i['description'].lower()],
+        'recipes': [r for r in MOCK_DATA['recipes'] 
+                  if query in r['title'].lower() or 
+                     query in r['description'].lower()]
+    }
+    
+    return jsonify(results)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)
