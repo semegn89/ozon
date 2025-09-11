@@ -94,6 +94,38 @@
             margin-top: 20px;
             font-weight: bold;
         }
+        
+        .models-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .model-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .model-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .model-description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .model-tags {
+            color: #007bff;
+            font-size: 12px;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -111,7 +143,14 @@
             <h3>🧪 Тест API</h3>
             <button class="btn" onclick="testAPI()">Тест API</button>
             <button class="btn" onclick="testModels()">Получить модели</button>
+            <button class="btn" onclick="testInstructions()">Получить инструкции</button>
+            <button class="btn" onclick="testRecipes()">Получить рецепты</button>
             <div id="result" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="models-section" style="margin-top: 30px;">
+            <h3>📱 Доступные модели</h3>
+            <div id="models-list" class="models-list"></div>
         </div>
         
         <div id="telegram-info" class="telegram-info" style="display: none;">
@@ -160,10 +199,60 @@
                 const response = await fetch('/api/models');
                 const data = await response.json();
                 resultDiv.textContent = JSON.stringify(data, null, 2);
+                displayModels(data);
             } catch (error) {
                 resultDiv.textContent = 'Ошибка: ' + error.message;
             }
         }
+
+        async function testInstructions() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Получаем инструкции...';
+            
+            try {
+                const response = await fetch('/api/instructions');
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultDiv.textContent = 'Ошибка: ' + error.message;
+            }
+        }
+
+        async function testRecipes() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Получаем рецепты...';
+            
+            try {
+                const response = await fetch('/api/recipes');
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultDiv.textContent = 'Ошибка: ' + error.message;
+            }
+        }
+
+        function displayModels(models) {
+            const modelsList = document.getElementById('models-list');
+            modelsList.innerHTML = '';
+            
+            models.forEach(model => {
+                const modelCard = document.createElement('div');
+                modelCard.className = 'model-card';
+                modelCard.innerHTML = `
+                    <div class="model-name">${model.name}</div>
+                    <div class="model-description">${model.description}</div>
+                    <div class="model-tags">${model.tags}</div>
+                `;
+                modelsList.appendChild(modelCard);
+            });
+        }
+
+        // Загружаем модели при загрузке страницы
+        window.addEventListener('load', () => {
+            testModels();
+        });
     </script>
 </body>
 </html>
