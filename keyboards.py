@@ -7,7 +7,7 @@ import math
 def main_menu_keyboard(lang: str = 'ru') -> InlineKeyboardMarkup:
     """Main menu keyboard"""
     buttons = [
-        [InlineKeyboardButton("🌐 Открыть приложение", web_app=WebAppInfo(url="https://your-domain.com/webapp/"))],
+        [InlineKeyboardButton("🌐 Открыть приложение", web_app=WebAppInfo(url="https://gakshop.com/"))],
         [InlineKeyboardButton(get_text('choose_model', lang), callback_data='choose_model')],
         [InlineKeyboardButton(get_text('instructions', lang), callback_data='instructions')],
         [InlineKeyboardButton(get_text('recipes', lang), callback_data='recipes')],

@@ -250,5 +250,9 @@ def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'ok', 'service': 'webapp-api'})
 
+# Vercel entry point
+def handler(request):
+    return app(request.environ, lambda *args: None)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

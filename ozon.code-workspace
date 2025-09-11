@@ -10,5 +10,7 @@
 			"path": "../Desktop/WB/venv311"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "ozon"
+	}
 }
