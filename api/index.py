@@ -1,104 +1,62 @@
-#!/usr/bin/env python3
-"""
-API endpoints for Telegram Mini App - Vercel deployment
-"""
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-import os
-import sys
-
-app = Flask(__name__)
-CORS(app)
-
-@app.route('/api/test', methods=['GET'])
-def test_api():
-    """Test API endpoint"""
-    return jsonify({
-        'status': 'ok',
-        'message': 'API работает!',
-        'timestamp': '2024-01-01T00:00:00Z'
-    })
-
-@app.route('/api/models', methods=['GET'])
-def get_models():
-    """Get all models - mock data"""
-    return jsonify([
-        {
-            'id': 1,
-            'name': 'Тестовая модель 1',
-            'description': 'Описание модели 1',
-            'tags': 'тест, модель',
-            'created_at': '2024-01-01T00:00:00Z',
-            'instructions': [{'id': 1}]
-        },
-        {
-            'id': 2,
-            'name': 'Тестовая модель 2',
-            'description': 'Описание модели 2',
-            'tags': 'тест, модель',
-            'created_at': '2024-01-01T00:00:00Z',
-            'instructions': [{'id': 2}]
+def handler(request):
+    """Vercel serverless function handler"""
+    import json
+    
+    # Get the path from the request
+    path = request.get('path', '/')
+    
+    # Handle different routes
+    if path == '/api/test':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            },
+            'body': json.dumps({
+                'status': 'ok',
+                'message': 'API работает!',
+                'path': path
+            })
         }
-    ])
-
-@app.route('/api/instructions', methods=['GET'])
-def get_instructions():
-    """Get all instructions - mock data"""
-    return jsonify([
-        {
-            'id': 1,
-            'title': 'Тестовая инструкция 1',
-            'type': 'pdf',
-            'description': 'Описание инструкции 1',
-            'created_at': '2024-01-01T00:00:00Z',
-            'models': [{'id': 1}]
-        }
-    ])
-
-@app.route('/api/recipes', methods=['GET'])
-def get_recipes():
-    """Get all recipes - mock data"""
-    return jsonify([
-        {
-            'id': 1,
-            'title': 'Тестовый рецепт 1',
-            'type': 'video',
-            'description': 'Описание рецепта 1',
-            'created_at': '2024-01-01T00:00:00Z',
-            'models': [{'id': 1}]
-        }
-    ])
-
-@app.route('/api/tickets', methods=['GET'])
-def get_tickets():
-    """Get user tickets - mock data"""
-    return jsonify([
-        {
-            'id': 1,
-            'user_id': 123456,
-            'username': 'test_user',
-            'status': 'open',
-            'subject': 'Тестовый тикет',
-            'created_at': '2024-01-01T00:00:00Z',
-            'messages': [
+    
+    elif path == '/api/models':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps([
                 {
                     'id': 1,
-                    'from_role': 'user',
-                    'text': 'Тестовое сообщение',
-                    'created_at': '2024-01-01T00:00:00Z'
+                    'name': 'Тестовая модель 1',
+                    'description': 'Описание модели 1'
+                },
+                {
+                    'id': 2,
+                    'name': 'Тестовая модель 2',
+                    'description': 'Описание модели 2'
                 }
-            ]
+            ])
         }
-    ])
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({'status': 'ok', 'service': 'webapp-api'})
-
-# Vercel entry point
-def handler(request):
-    return app(request.environ, lambda *args: None)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    
+    elif path == '/health':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json'
+            },
+            'body': json.dumps({'status': 'ok', 'service': 'webapp-api'})
+        }
+    
+    else:
+        return {
+            'statusCode': 404,
+            'headers': {
+                'Content-Type': 'application/json'
+            },
+            'body': json.dumps({'error': 'Not found', 'path': path})
+        }
