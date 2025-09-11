@@ -124,26 +124,39 @@ STORAGE = {
 def handler(request):
     """Vercel serverless function handler"""
     
-    # Vercel passes request as a dictionary
-    path = request.get('path', '/')
-    method = request.get('httpMethod', 'GET')
-    body = request.get('body', '')
-    
-    # Handle query parameters
-    query_params = request.get('queryStringParameters', {}) or {}
-    
-    # CORS headers
-    headers = {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-    }
-    
-    if method == 'OPTIONS':
-        return {'statusCode': 200, 'headers': headers, 'body': ''}
-    
     try:
+        # Vercel passes request as a dictionary
+        path = request.get('path', '/')
+        method = request.get('httpMethod', 'GET')
+        body = request.get('body', '')
+        
+        # Handle query parameters
+        query_params = request.get('queryStringParameters', {}) or {}
+        
+        # CORS headers
+        headers = {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        }
+        
+        if method == 'OPTIONS':
+            return {'statusCode': 200, 'headers': headers, 'body': ''}
+        
+        # Simple test endpoint first
+        if path == '/api/test':
+            return {
+                'statusCode': 200,
+                'headers': headers,
+                'body': json.dumps({
+                    'message': 'API is working!',
+                    'path': path,
+                    'method': method,
+                    'timestamp': datetime.now().isoformat()
+                })
+            }
+        
         # Health check
         if path == '/api/health':
             return {
@@ -161,21 +174,8 @@ def handler(request):
                 })
             }
         
-        # Simple test endpoint
-        if path == '/api/test':
-            return {
-                'statusCode': 200,
-                'headers': headers,
-                'body': json.dumps({
-                    'message': 'API is working!',
-                    'path': path,
-                    'method': method,
-                    'timestamp': datetime.now().isoformat()
-                })
-            }
-        
         # Models endpoints
-        elif path == '/api/models':
+        if path == '/api/models':
             if method == 'GET':
                 return {
                     'statusCode': 200,
@@ -200,179 +200,79 @@ def handler(request):
                     'body': json.dumps(new_model)
                 }
         
-        elif path.startswith('/api/models/'):
+        # Model detail endpoint
+        if path.startswith('/api/models/') and method == 'GET':
             model_id = int(path.split('/')[-1])
-            
-            if method == 'GET':
-                # Get model with instructions and recipes
-                model = next((m for m in STORAGE['models'] if m['id'] == model_id), None)
-                if not model:
-                    return {
-                        'statusCode': 404,
-                        'headers': headers,
-                        'body': json.dumps({'error': 'Model not found'})
-                    }
-                
+            model = next((m for m in STORAGE['models'] if m['id'] == model_id), None)
+            if model:
                 # Add related instructions and recipes
                 model['instructions'] = [i for i in STORAGE['instructions'] if i['model_id'] == model_id]
                 model['recipes'] = [r for r in STORAGE['recipes'] if r['model_id'] == model_id]
-                
                 return {
                     'statusCode': 200,
                     'headers': headers,
                     'body': json.dumps(model)
                 }
-            
-            elif method == 'DELETE':
-                STORAGE['models'] = [m for m in STORAGE['models'] if m['id'] != model_id]
-                # Also delete related instructions and recipes
-                STORAGE['instructions'] = [i for i in STORAGE['instructions'] if i['model_id'] != model_id]
-                STORAGE['recipes'] = [r for r in STORAGE['recipes'] if r['model_id'] != model_id]
-                
+            else:
                 return {
-                    'statusCode': 200,
+                    'statusCode': 404,
                     'headers': headers,
-                    'body': json.dumps({'message': 'Model deleted'})
+                    'body': json.dumps({'error': 'Model not found'})
                 }
         
         # Instructions endpoints
-        elif path == '/api/instructions':
+        if path == '/api/instructions':
             if method == 'GET':
                 return {
                     'statusCode': 200,
                     'headers': headers,
                     'body': json.dumps(STORAGE['instructions'])
                 }
-            elif method == 'POST':
-                data = json.loads(body) if body else {}
-                new_instruction = {
-                    'id': max([i['id'] for i in STORAGE['instructions']], default=0) + 1,
-                    'title': data.get('title', ''),
-                    'type': data.get('type', 'pdf'),
-                    'description': data.get('description', ''),
-                    'model_id': data.get('model_id'),
-                    'created_at': datetime.now().isoformat()
-                }
-                STORAGE['instructions'].append(new_instruction)
-                
-                # Update model's instruction count
-                for model in STORAGE['models']:
-                    if model['id'] == new_instruction['model_id']:
-                        model['instructions_count'] += 1
-                        break
-                
-                return {
-                    'statusCode': 201,
-                    'headers': headers,
-                    'body': json.dumps(new_instruction)
-                }
-        
-        elif path.startswith('/api/instructions/') and method == 'DELETE':
-            instruction_id = int(path.split('/')[-1])
-            instruction = next((i for i in STORAGE['instructions'] if i['id'] == instruction_id), None)
-            
-            if instruction:
-                STORAGE['instructions'] = [i for i in STORAGE['instructions'] if i['id'] != instruction_id]
-                
-                # Update model's instruction count
-                for model in STORAGE['models']:
-                    if model['id'] == instruction['model_id']:
-                        model['instructions_count'] = max(0, model['instructions_count'] - 1)
-                        break
-            
-            return {
-                'statusCode': 200,
-                'headers': headers,
-                'body': json.dumps({'message': 'Instruction deleted'})
-            }
         
         # Recipes endpoints
-        elif path == '/api/recipes':
+        if path == '/api/recipes':
             if method == 'GET':
                 return {
                     'statusCode': 200,
                     'headers': headers,
                     'body': json.dumps(STORAGE['recipes'])
                 }
-            elif method == 'POST':
-                data = json.loads(body) if body else {}
-                new_recipe = {
-                    'id': max([r['id'] for r in STORAGE['recipes']], default=0) + 1,
-                    'title': data.get('title', ''),
-                    'type': data.get('type', 'pdf'),
-                    'description': data.get('description', ''),
-                    'model_id': data.get('model_id'),
-                    'created_at': datetime.now().isoformat()
-                }
-                STORAGE['recipes'].append(new_recipe)
-                
-                # Update model's recipe count
-                for model in STORAGE['models']:
-                    if model['id'] == new_recipe['model_id']:
-                        model['recipes_count'] += 1
-                        break
-                
-                return {
-                    'statusCode': 201,
-                    'headers': headers,
-                    'body': json.dumps(new_recipe)
-                }
         
-        elif path.startswith('/api/recipes/') and method == 'DELETE':
-            recipe_id = int(path.split('/')[-1])
-            recipe = next((r for r in STORAGE['recipes'] if r['id'] == recipe_id), None)
+        # Search endpoint
+        if path == '/api/search' and method == 'POST':
+            data = json.loads(body) if body else {}
+            query = data.get('query', '').strip().lower()
             
-            if recipe:
-                STORAGE['recipes'] = [r for r in STORAGE['recipes'] if r['id'] != recipe_id]
-                
-                # Update model's recipe count
-                for model in STORAGE['models']:
-                    if model['id'] == recipe['model_id']:
-                        model['recipes_count'] = max(0, model['recipes_count'] - 1)
-                        break
+            if not query:
+                return {
+                    'statusCode': 400,
+                    'headers': headers,
+                    'body': json.dumps({'error': 'Query is required'})
+                }
+            
+            # Search in all data
+            results = {
+                'query': query,
+                'models': [m for m in STORAGE['models'] 
+                          if query in m['name'].lower() or 
+                             query in m['description'].lower() or 
+                             query in m['tags'].lower()],
+                'instructions': [i for i in STORAGE['instructions'] 
+                               if query in i['title'].lower() or 
+                                  query in i['description'].lower()],
+                'recipes': [r for r in STORAGE['recipes'] 
+                          if query in r['title'].lower() or 
+                             query in r['description'].lower()]
+            }
             
             return {
                 'statusCode': 200,
                 'headers': headers,
-                'body': json.dumps({'message': 'Recipe deleted'})
+                'body': json.dumps(results)
             }
         
-        # Search endpoint
-        elif path == '/api/search':
-            if method == 'POST':
-                data = json.loads(body) if body else {}
-                query = data.get('query', '').strip().lower()
-                
-                if not query:
-                    return {
-                        'statusCode': 400,
-                        'headers': headers,
-                        'body': json.dumps({'error': 'Query is required'})
-                    }
-                
-                # Search in all data
-                results = {
-                    'query': query,
-                    'models': [m for m in STORAGE['models'] 
-                              if query in m['name'].lower() or 
-                                 query in m['description'].lower() or 
-                                 query in m['tags'].lower()],
-                    'instructions': [i for i in STORAGE['instructions'] 
-                                   if query in i['title'].lower() or 
-                                      query in i['description'].lower()],
-                    'recipes': [r for r in STORAGE['recipes'] 
-                              if query in r['title'].lower() or 
-                                 query in r['description'].lower()]
-                }
-                
-                return {
-                    'statusCode': 200,
-                    'headers': headers,
-                    'body': json.dumps(results)
-                }
-        
         # Tickets endpoints
-        elif path == '/api/tickets':
+        if path == '/api/tickets':
             if method == 'GET':
                 user_id = query_params.get('user_id')
                 if user_id:
@@ -413,48 +313,30 @@ def handler(request):
                     'body': json.dumps(new_ticket)
                 }
         
-        elif path.startswith('/api/tickets/') and method == 'PUT':
-            ticket_id = int(path.split('/')[-1])
-            data = json.loads(body) if body else {}
-            
-            ticket = next((t for t in STORAGE['tickets'] if t['id'] == ticket_id), None)
-            if ticket:
-                if 'status' in data:
-                    ticket['status'] = data['status']
-                    if data['status'] == 'closed':
-                        ticket['closed_at'] = datetime.now().isoformat()
-                
-                if 'message' in data:
-                    new_message = {
-                        'id': max([m['id'] for m in ticket['messages']], default=0) + 1,
-                        'from_role': data.get('from_role', 'admin'),
-                        'text': data['message'],
-                        'created_at': datetime.now().isoformat()
-                    }
-                    ticket['messages'].append(new_message)
-                
-                return {
-                    'statusCode': 200,
-                    'headers': headers,
-                    'body': json.dumps(ticket)
-                }
-            else:
-                return {
-                    'statusCode': 404,
-                    'headers': headers,
-                    'body': json.dumps({'error': 'Ticket not found'})
-                }
-        
-        else:
-            return {
-                'statusCode': 404,
-                'headers': headers,
-                'body': json.dumps({'error': 'Not found', 'path': path})
-            }
+        # Default response for any other path
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': json.dumps({
+                'message': 'API endpoint not found',
+                'path': path,
+                'method': method,
+                'available_endpoints': ['/api/test', '/api/health', '/api/models', '/api/instructions', '/api/recipes', '/api/tickets', '/api/search']
+            })
+        }
     
     except Exception as e:
+        # Return error response
         return {
             'statusCode': 500,
-            'headers': headers,
-            'body': json.dumps({'error': str(e)})
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': str(e),
+                'message': 'Internal server error',
+                'path': request.get('path', '/'),
+                'method': request.get('httpMethod', 'GET')
+            })
         }
