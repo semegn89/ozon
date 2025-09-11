@@ -1,12 +1,19 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/*.py": {
+      "runtime": "python3.9"
     }
-  ],
+  },
   "routes": [
+    {
+      "src": "/api/test",
+      "dest": "/api/test.py"
+    },
+    {
+      "src": "/api/health",
+      "dest": "/api/health.py"
+    },
     {
       "src": "/api/(.*)",
       "dest": "/api/index.py"
