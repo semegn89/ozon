@@ -1,0 +1,20 @@
+# Ignore bot files for Vercel deployment
+bot_new.py
+bot.py
+config.py
+models.py
+services/
+data.db
+*.log
+*.bak
+__pycache__/
+*.pyc
+venv/
+.env
+.env.local
+railway.json
+Procfile
+Dockerfile
+docker-compose.yml
+deploy*.sh
+*.service

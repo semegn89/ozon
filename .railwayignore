@@ -1,0 +1,17 @@
+# Ignore webapp folder for Railway deployment
+webapp/
+webapp.zip
+webapp 2.zip
+
+# Ignore Vercel files
+vercel.json
+.vercel/
+
+# Ignore development files
+*.log
+*.bak
+__pycache__/
+*.pyc
+venv/
+.env
+.env.local

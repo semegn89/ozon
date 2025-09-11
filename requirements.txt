@@ -1,0 +1,6 @@
+# Telegram Bot Dependencies
+python-telegram-bot==20.7
+SQLAlchemy==2.0.21
+psycopg2-binary==2.9.7
+python-dotenv==1.0.0
+alembic==1.13.1
