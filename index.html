@@ -139,18 +139,57 @@
             <p><strong>Статус:</strong> Развернуто на Vercel</p>
         </div>
         
-        <div class="api-test">
-            <h3>🧪 Тест API</h3>
-            <button class="btn" onclick="testAPI()">Тест API</button>
-            <button class="btn" onclick="testModels()">Получить модели</button>
-            <button class="btn" onclick="testInstructions()">Получить инструкции</button>
-            <button class="btn" onclick="testRecipes()">Получить рецепты</button>
-            <div id="result" class="result" style="display: none;"></div>
-        </div>
-        
         <div class="models-section" style="margin-top: 30px;">
             <h3>📱 Доступные модели</h3>
-            <div id="models-list" class="models-list"></div>
+            <div id="models-list" class="models-list">
+                <div class="model-card">
+                    <div class="model-name">iPhone 15 Pro</div>
+                    <div class="model-description">Новейший смартфон от Apple с титановым корпусом</div>
+                    <div class="model-tags">apple, iphone, смартфон</div>
+                </div>
+                <div class="model-card">
+                    <div class="model-name">Samsung Galaxy S24</div>
+                    <div class="model-description">Флагманский Android смартфон с ИИ функциями</div>
+                    <div class="model-tags">samsung, android, смартфон</div>
+                </div>
+                <div class="model-card">
+                    <div class="model-name">MacBook Pro M3</div>
+                    <div class="model-description">Мощный ноутбук для профессионалов</div>
+                    <div class="model-tags">apple, macbook, ноутбук</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions-section" style="margin-top: 30px;">
+            <h3>📋 Инструкции</h3>
+            <div class="models-list">
+                <div class="model-card">
+                    <div class="model-name">Настройка iPhone 15 Pro</div>
+                    <div class="model-description">Подробная инструкция по настройке нового iPhone</div>
+                    <div class="model-tags">pdf, инструкция</div>
+                </div>
+                <div class="model-card">
+                    <div class="model-name">Перенос данных на iPhone</div>
+                    <div class="model-description">Видео-инструкция по переносу данных</div>
+                    <div class="model-tags">video, инструкция</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="recipes-section" style="margin-top: 30px;">
+            <h3>🍳 Рецепты</h3>
+            <div class="models-list">
+                <div class="model-card">
+                    <div class="model-name">Рецепт восстановления iPhone</div>
+                    <div class="model-description">Пошаговое восстановление iPhone через iTunes</div>
+                    <div class="model-tags">video, восстановление</div>
+                </div>
+                <div class="model-card">
+                    <div class="model-name">Рецепт оптимизации MacBook</div>
+                    <div class="model-description">Способы оптимизации производительности MacBook</div>
+                    <div class="model-tags">pdf, оптимизация</div>
+                </div>
+            </div>
         </div>
         
         <div id="telegram-info" class="telegram-info" style="display: none;">
@@ -175,84 +214,10 @@
             document.getElementById('telegram-info').style.display = 'block';
         }
 
-        // Тестируем API
-        async function testAPI() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            resultDiv.textContent = 'Тестируем API...';
-            
-            try {
-                const response = await fetch('/api/test');
-                const data = await response.json();
-                resultDiv.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultDiv.textContent = 'Ошибка: ' + error.message;
-            }
+        // Простая функция для демонстрации
+        function showMessage(message) {
+            alert(message);
         }
-
-        async function testModels() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            resultDiv.textContent = 'Получаем модели...';
-            
-            try {
-                const response = await fetch('/api/models');
-                const data = await response.json();
-                resultDiv.textContent = JSON.stringify(data, null, 2);
-                displayModels(data);
-            } catch (error) {
-                resultDiv.textContent = 'Ошибка: ' + error.message;
-            }
-        }
-
-        async function testInstructions() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            resultDiv.textContent = 'Получаем инструкции...';
-            
-            try {
-                const response = await fetch('/api/instructions');
-                const data = await response.json();
-                resultDiv.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultDiv.textContent = 'Ошибка: ' + error.message;
-            }
-        }
-
-        async function testRecipes() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            resultDiv.textContent = 'Получаем рецепты...';
-            
-            try {
-                const response = await fetch('/api/recipes');
-                const data = await response.json();
-                resultDiv.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultDiv.textContent = 'Ошибка: ' + error.message;
-            }
-        }
-
-        function displayModels(models) {
-            const modelsList = document.getElementById('models-list');
-            modelsList.innerHTML = '';
-            
-            models.forEach(model => {
-                const modelCard = document.createElement('div');
-                modelCard.className = 'model-card';
-                modelCard.innerHTML = `
-                    <div class="model-name">${model.name}</div>
-                    <div class="model-description">${model.description}</div>
-                    <div class="model-tags">${model.tags}</div>
-                `;
-                modelsList.appendChild(modelCard);
-            });
-        }
-
-        // Загружаем модели при загрузке страницы
-        window.addEventListener('load', () => {
-            testModels();
-        });
     </script>
 </body>
 </html>
