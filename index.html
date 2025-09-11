@@ -3,802 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OZON - Техническая поддержка</title>
-    <meta name="description" content="Техническая поддержка и инструкции для устройств">
-    <meta name="theme-color" content="#667eea">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 500px;
-            width: 100%;
-        }
-        
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 2.5em;
-        }
-        
-        .status {
-            background: #4CAF50;
-            color: white;
-            padding: 15px 30px;
-            border-radius: 25px;
-            display: inline-block;
-            margin: 20px 0;
-            font-size: 1.2em;
-            font-weight: bold;
-        }
-        
-        .info {
-            color: #666;
-            line-height: 1.8;
-            margin: 20px 0;
-        }
-        
-        .api-test {
-            margin: 30px 0;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-        
-        .btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 10px;
-            transition: background 0.3s;
-        }
-        
-        .btn:hover {
-            background: #0056b3;
-        }
-        
-        .result {
-            margin-top: 15px;
-            padding: 15px;
-            background: #e9ecef;
-            border-radius: 8px;
-            text-align: left;
-            font-family: monospace;
-            font-size: 14px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .telegram-info {
-            color: #0088cc;
-            margin-top: 20px;
-            font-weight: bold;
-        }
-        
-        .models-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .model-card {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            border-left: 4px solid #007bff;
-        }
-        
-        .model-name {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 8px;
-        }
-        
-        .model-description {
-            color: #666;
-            font-size: 14px;
-            line-height: 1.4;
-        }
-        
-        .model-tags {
-            color: #007bff;
-            font-size: 12px;
-            margin-top: 8px;
-        }
-        
-        .app-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .app-header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        
-        .app-subtitle {
-            color: #666;
-            font-size: 1.1em;
-        }
-        
-        .main-nav {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-        
-        .nav-btn {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            padding: 12px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-        
-        .nav-btn:hover {
-            background: #e9ecef;
-        }
-        
-        .nav-btn.active {
-            background: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
-        
-        .search-section {
-            margin-bottom: 30px;
-        }
-        
-        .search-box {
-            display: flex;
-            max-width: 500px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 25px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .search-box input {
-            flex: 1;
-            padding: 15px 20px;
-            border: none;
-            outline: none;
-            font-size: 16px;
-        }
-        
-        .search-box button {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 15px 20px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        
-        .content-section {
-            display: none;
-        }
-        
-        .content-section.active {
-            display: block;
-        }
-        
-        .content-section h2 {
-            margin-bottom: 20px;
-            color: #333;
-            text-align: center;
-        }
-        
-        .loading {
-            text-align: center;
-            color: #666;
-            padding: 40px;
-            font-style: italic;
-        }
-        
-        .support-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-        
-        .support-form {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-        }
-        
-        .support-form h3 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-        
-        .support-form input,
-        .support-form textarea {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-        
-        .support-form textarea {
-            height: 100px;
-            resize: vertical;
-        }
-        
-        .support-form button {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        
-        .support-tickets {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-        }
-        
-        .support-tickets h3 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-        
-        .tickets-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        
-        .ticket-item {
-            background: white;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            border-left: 4px solid #007bff;
-        }
-        
-        .ticket-status {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        
-        .ticket-status.open {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .ticket-status.closed {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 20px;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
-            position: relative;
-        }
-        
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            position: absolute;
-            right: 15px;
-            top: 10px;
-        }
-        
-        .close:hover {
-            color: #000;
-        }
-        
-        @media (max-width: 768px) {
-            .support-content {
-                grid-template-columns: 1fr;
-            }
-            
-            .main-nav {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .nav-btn {
-                width: 200px;
-            }
-        }
-    </style>
+    <title>SAG Shop - Инструкции и Рецепты</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-    <div class="container">
-        <header class="app-header">
-            <h1>🔧 OZON Support</h1>
-            <p class="app-subtitle">Техническая поддержка и инструкции</p>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>🏪 SAG Shop</h1>
+                <p>Инструкции и рецепты для ваших моделей</p>
+            </div>
         </header>
-        
-        <nav class="main-nav">
-            <button class="nav-btn active" onclick="showSection('models')">
-                📱 Модели
-            </button>
-            <button class="nav-btn" onclick="showSection('instructions')">
-                📋 Инструкции
-            </button>
-            <button class="nav-btn" onclick="showSection('recipes')">
-                🍳 Рецепты
-            </button>
-            <button class="nav-btn" onclick="showSection('support')">
-                🆘 Поддержка
-            </button>
-        </nav>
-        
-        <div class="search-section">
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Поиск по моделям, инструкциям..." onkeyup="handleSearch(event)">
-                <button onclick="performSearch()">🔍</button>
-            </div>
+
+        <!-- Loading Screen -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Загрузка...</p>
         </div>
-        
-        <!-- Models Section -->
-        <section id="models-section" class="content-section active">
-            <h2>📱 Доступные модели</h2>
-            <div id="models-list" class="models-list">
-                <div class="loading">Загрузка моделей...</div>
-            </div>
-        </section>
-        
-        <!-- Instructions Section -->
-        <section id="instructions-section" class="content-section">
-            <h2>📋 Инструкции</h2>
-            <div id="instructions-list" class="models-list">
-                <div class="loading">Загрузка инструкций...</div>
-            </div>
-        </section>
-        
-        <!-- Recipes Section -->
-        <section id="recipes-section" class="content-section">
-            <h2>🍳 Рецепты</h2>
-            <div id="recipes-list" class="models-list">
-                <div class="loading">Загрузка рецептов...</div>
-            </div>
-        </section>
-        
-        <!-- Support Section -->
-        <section id="support-section" class="content-section">
-            <h2>🆘 Техническая поддержка</h2>
-            <div class="support-content">
-                <div class="support-form">
-                    <h3>Создать обращение</h3>
-                    <input type="text" id="supportSubject" placeholder="Тема обращения">
-                    <textarea id="supportMessage" placeholder="Опишите вашу проблему..."></textarea>
-                    <button onclick="createSupportTicket()">Отправить</button>
+
+        <!-- Main Content -->
+        <div id="main-content" class="main-content" style="display: none;">
+            <!-- API Test Section -->
+            <div class="api-test-section">
+                <h3>🔧 Тест API</h3>
+                <div class="api-buttons">
+                    <button class="btn btn-primary" onclick="testAPI()">Тест API</button>
+                    <button class="btn btn-secondary" onclick="loadModels()">Получить модели</button>
                 </div>
-                <div class="support-tickets">
-                    <h3>Мои обращения</h3>
-                    <div id="tickets-list" class="tickets-list">
-                        <div class="loading">Загрузка обращений...</div>
+                <div id="api-result" class="api-result"></div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-tab="models">📱 Модели</button>
+                <button class="nav-tab" data-tab="instructions">📄 Инструкции</button>
+                <button class="nav-tab" data-tab="recipes">🍳 Рецепты</button>
+                <button class="nav-tab" data-tab="support">🆘 Поддержка</button>
+            </nav>
+
+            <!-- Models Tab -->
+            <div id="models-tab" class="tab-content active">
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="🔍 Поиск моделей...">
+                </div>
+                <div id="models-list" class="models-list">
+                    <!-- Models will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Instructions Tab -->
+            <div id="instructions-tab" class="tab-content">
+                <div class="search-box">
+                    <input type="text" id="instructions-search" placeholder="🔍 Поиск инструкций...">
+                </div>
+                <div id="instructions-list" class="instructions-list">
+                    <!-- Instructions will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Recipes Tab -->
+            <div id="recipes-tab" class="tab-content">
+                <div class="search-box">
+                    <input type="text" id="recipes-search" placeholder="🔍 Поиск рецептов...">
+                </div>
+                <div id="recipes-list" class="recipes-list">
+                    <!-- Recipes will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Support Tab -->
+            <div id="support-tab" class="tab-content">
+                <div class="support-content">
+                    <h3>🆘 Служба поддержки</h3>
+                    <p>Есть вопросы? Создайте обращение и мы поможем!</p>
+                    
+                    <div id="ticket-form" class="ticket-form">
+                        <textarea id="ticket-message" placeholder="Опишите вашу проблему или вопрос..."></textarea>
+                        <button id="create-ticket" class="btn btn-primary">Создать обращение</button>
+                    </div>
+
+                    <div id="ticket-history" class="ticket-history" style="display: none;">
+                        <h4>Ваши обращения</h4>
+                        <div id="tickets-list"></div>
                     </div>
                 </div>
             </div>
-        </section>
-        
-        <!-- Model Detail Modal -->
+        </div>
+
+        <!-- Model Details Modal -->
         <div id="model-modal" class="modal">
             <div class="modal-content">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <div id="model-detail-content"></div>
+                <div class="modal-header">
+                    <h3 id="modal-title">Детали модели</h3>
+                    <button class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="model-info"></div>
+                    <div id="model-instructions"></div>
+                    <div id="model-recipes"></div>
+                </div>
             </div>
         </div>
-        
-        <div id="telegram-info" class="telegram-info" style="display: none;">
-            📱 Запущено в Telegram WebApp
+
+        <!-- Instruction Details Modal -->
+        <div id="instruction-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="instruction-modal-title">Инструкция</h3>
+                    <button class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="instruction-info"></div>
+                    <div id="instruction-actions"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recipe Details Modal -->
+        <div id="recipe-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="recipe-modal-title">Рецепт</h3>
+                    <button class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="recipe-info"></div>
+                    <div id="recipe-actions"></div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script>
-        // Показываем текущее время
-        function updateTime() {
-            const now = new Date();
-            document.getElementById('time').textContent = now.toLocaleString('ru-RU');
-        }
-        updateTime();
-        setInterval(updateTime, 1000);
-
-        // Проверяем, запущено ли в Telegram
-        if (window.Telegram && window.Telegram.WebApp) {
-            const tg = window.Telegram.WebApp;
-            tg.ready();
-            tg.expand();
-            document.getElementById('telegram-info').style.display = 'block';
-        }
-
-        // Global state
-        let currentUser = null;
-        let searchTimeout = null;
-
-        // Initialize app
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeTelegram();
-            loadModels();
-            loadInstructions();
-            loadRecipes();
-            loadTickets();
-        });
-
-        // Telegram WebApp initialization
-        function initializeTelegram() {
-            if (window.Telegram && window.Telegram.WebApp) {
-                const tg = window.Telegram.WebApp;
-                tg.ready();
-                tg.expand();
-                
-                // Get user info
-                currentUser = tg.initDataUnsafe?.user;
-                if (currentUser) {
-                    document.getElementById('telegram-info').style.display = 'block';
-                    document.getElementById('telegram-info').textContent = 
-                        `📱 Запущено в Telegram WebApp (${currentUser.first_name})`;
-                }
-            }
-        }
-
-        // Navigation
-        function showSection(sectionName) {
-            // Hide all sections
-            document.querySelectorAll('.content-section').forEach(section => {
-                section.classList.remove('active');
-            });
-            
-            // Remove active class from all nav buttons
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Show selected section
-            document.getElementById(sectionName + '-section').classList.add('active');
-            
-            // Add active class to clicked button
-            event.target.classList.add('active');
-        }
-
-        // API calls
-        async function apiCall(endpoint, options = {}) {
-            try {
-                const response = await fetch('/api' + endpoint, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...options.headers
-                    },
-                    ...options
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                return await response.json();
-            } catch (error) {
-                console.error('API call failed:', error);
-                throw error;
-            }
-        }
-
-        // Load models
-        async function loadModels() {
-            try {
-                const models = await apiCall('/models');
-                displayModels(models);
-            } catch (error) {
-                document.getElementById('models-list').innerHTML = 
-                    '<div class="loading">Ошибка загрузки моделей</div>';
-            }
-        }
-
-        // Display models
-        function displayModels(models) {
-            const container = document.getElementById('models-list');
-            
-            if (!models || models.length === 0) {
-                container.innerHTML = '<div class="loading">Модели не найдены</div>';
-                return;
-            }
-            
-            container.innerHTML = models.map(model => `
-                <div class="model-card" onclick="showModelDetail(${model.id})">
-                    <div class="model-name">${model.name}</div>
-                    <div class="model-description">${model.description}</div>
-                    <div class="model-tags">${model.tags}</div>
-                    <div class="model-stats">
-                        📋 ${model.instructions_count || 0} инструкций | 
-                        🍳 ${model.recipes_count || 0} рецептов
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Show model detail
-        async function showModelDetail(modelId) {
-            try {
-                const model = await apiCall(`/models/${modelId}`);
-                showModelModal(model);
-            } catch (error) {
-                alert('Ошибка загрузки деталей модели');
-            }
-        }
-
-        // Show model modal
-        function showModelModal(model) {
-            const modal = document.getElementById('model-modal');
-            const content = document.getElementById('model-detail-content');
-            
-            content.innerHTML = `
-                <h2>${model.name}</h2>
-                <p><strong>Описание:</strong> ${model.description}</p>
-                <p><strong>Теги:</strong> ${model.tags}</p>
-                
-                <h3>📋 Инструкции (${model.instructions.length})</h3>
-                <div class="models-list">
-                    ${model.instructions.map(inst => `
-                        <div class="model-card">
-                            <div class="model-name">${inst.title}</div>
-                            <div class="model-description">${inst.description}</div>
-                            <div class="model-tags">${inst.type}</div>
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <h3>🍳 Рецепты (${model.recipes.length})</h3>
-                <div class="models-list">
-                    ${model.recipes.map(recipe => `
-                        <div class="model-card">
-                            <div class="model-name">${recipe.title}</div>
-                            <div class="model-description">${recipe.description}</div>
-                            <div class="model-tags">${recipe.type}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            
-            modal.style.display = 'block';
-        }
-
-        // Close modal
-        function closeModal() {
-            document.getElementById('model-modal').style.display = 'none';
-        }
-
-        // Load instructions
-        async function loadInstructions() {
-            try {
-                const instructions = await apiCall('/instructions');
-                displayInstructions(instructions);
-            } catch (error) {
-                document.getElementById('instructions-list').innerHTML = 
-                    '<div class="loading">Ошибка загрузки инструкций</div>';
-            }
-        }
-
-        // Display instructions
-        function displayInstructions(instructions) {
-            const container = document.getElementById('instructions-list');
-            
-            if (!instructions || instructions.length === 0) {
-                container.innerHTML = '<div class="loading">Инструкции не найдены</div>';
-                return;
-            }
-            
-            container.innerHTML = instructions.map(instruction => `
-                <div class="model-card">
-                    <div class="model-name">${instruction.title}</div>
-                    <div class="model-description">${instruction.description}</div>
-                    <div class="model-tags">${instruction.type} | Модель ID: ${instruction.model_id}</div>
-                </div>
-            `).join('');
-        }
-
-        // Load recipes
-        async function loadRecipes() {
-            try {
-                const recipes = await apiCall('/recipes');
-                displayRecipes(recipes);
-            } catch (error) {
-                document.getElementById('recipes-list').innerHTML = 
-                    '<div class="loading">Ошибка загрузки рецептов</div>';
-            }
-        }
-
-        // Display recipes
-        function displayRecipes(recipes) {
-            const container = document.getElementById('recipes-list');
-            
-            if (!recipes || recipes.length === 0) {
-                container.innerHTML = '<div class="loading">Рецепты не найдены</div>';
-                return;
-            }
-            
-            container.innerHTML = recipes.map(recipe => `
-                <div class="model-card">
-                    <div class="model-name">${recipe.title}</div>
-                    <div class="model-description">${recipe.description}</div>
-                    <div class="model-tags">${recipe.type} | Модель ID: ${recipe.model_id}</div>
-                </div>
-            `).join('');
-        }
-
-        // Search functionality
-        function handleSearch(event) {
-            if (event.key === 'Enter') {
-                performSearch();
-            } else {
-                // Debounce search
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(performSearch, 500);
-            }
-        }
-
-        async function performSearch() {
-            const query = document.getElementById('searchInput').value.trim();
-            
-            if (!query) {
-                return;
-            }
-            
-            try {
-                const results = await apiCall('/search', {
-                    method: 'POST',
-                    body: JSON.stringify({ query })
-                });
-                
-                // Show search results in current section
-                const activeSection = document.querySelector('.content-section.active');
-                
-                if (results.models && results.models.length > 0) {
-                    displayModels(results.models);
-                } else if (results.instructions && results.instructions.length > 0) {
-                    displayInstructions(results.instructions);
-                } else if (results.recipes && results.recipes.length > 0) {
-                    displayRecipes(results.recipes);
-                } else {
-                    const listContainer = activeSection.querySelector('.models-list');
-                    listContainer.innerHTML = '<div class="loading">Ничего не найдено</div>';
-                }
-            } catch (error) {
-                console.error('Search failed:', error);
-            }
-        }
-
-        // Support functionality
-        async function loadTickets() {
-            if (!currentUser) {
-                document.getElementById('tickets-list').innerHTML = 
-                    '<div class="loading">Войдите в Telegram для просмотра обращений</div>';
-                return;
-            }
-            
-            try {
-                const tickets = await apiCall(`/tickets?user_id=${currentUser.id}`);
-                displayTickets(tickets);
-            } catch (error) {
-                document.getElementById('tickets-list').innerHTML = 
-                    '<div class="loading">Ошибка загрузки обращений</div>';
-            }
-        }
-
-        // Display tickets
-        function displayTickets(tickets) {
-            const container = document.getElementById('tickets-list');
-            
-            if (!tickets || tickets.length === 0) {
-                container.innerHTML = '<div class="loading">У вас нет обращений</div>';
-                return;
-            }
-            
-            container.innerHTML = tickets.map(ticket => `
-                <div class="ticket-item">
-                    <div class="ticket-status ${ticket.status}">${ticket.status}</div>
-                    <h4>${ticket.subject}</h4>
-                    <p>${ticket.messages[0]?.text || 'Нет сообщений'}</p>
-                    <small>${new Date(ticket.created_at).toLocaleDateString('ru-RU')}</small>
-                </div>
-            `).join('');
-        }
-
-        // Create support ticket
-        async function createSupportTicket() {
-            if (!currentUser) {
-                alert('Войдите в Telegram для создания обращения');
-                return;
-            }
-            
-            const subject = document.getElementById('supportSubject').value.trim();
-            const message = document.getElementById('supportMessage').value.trim();
-            
-            if (!subject || !message) {
-                alert('Заполните все поля');
-                return;
-            }
-            
-            try {
-                const result = await apiCall('/tickets', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        user_id: currentUser.id,
-                        username: currentUser.username || currentUser.first_name,
-                        subject: subject,
-                        message: message
-                    })
-                });
-                
-                alert('Обращение создано успешно!');
-                document.getElementById('supportSubject').value = '';
-                document.getElementById('supportMessage').value = '';
-                loadTickets();
-            } catch (error) {
-                alert('Ошибка создания обращения');
-            }
-        }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('model-modal');
-            if (event.target === modal) {
-                closeModal();
-            }
-        }
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
