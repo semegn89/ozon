@@ -515,111 +515,37 @@
             event.target.classList.add('active');
         }
 
-        // Mock data - no API calls needed
-        const mockData = {
-            models: [
-                {
-                    id: 1,
-                    name: 'iPhone 15 Pro',
-                    description: 'Новейший смартфон от Apple с титановым корпусом и чипом A17 Pro',
-                    tags: 'apple, iphone, смартфон, титан',
-                    instructions_count: 3,
-                    recipes_count: 2
-                },
-                {
-                    id: 2,
-                    name: 'Samsung Galaxy S24',
-                    description: 'Флагманский Android смартфон с ИИ функциями и камерой 200MP',
-                    tags: 'samsung, android, смартфон, камера',
-                    instructions_count: 2,
-                    recipes_count: 1
-                },
-                {
-                    id: 3,
-                    name: 'MacBook Pro M3',
-                    description: 'Мощный ноутбук для профессионалов с чипом M3 и дисплеем Liquid Retina XDR',
-                    tags: 'apple, macbook, ноутбук, m3',
-                    instructions_count: 4,
-                    recipes_count: 3
-                },
-                {
-                    id: 4,
-                    name: 'iPad Pro 12.9"',
-                    description: 'Профессиональный планшет с чипом M2 и дисплеем Liquid Retina XDR',
-                    tags: 'apple, ipad, планшет, m2',
-                    instructions_count: 2,
-                    recipes_count: 1
+        // API calls
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch('/api' + endpoint, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            ],
-            instructions: [
-                {
-                    id: 1,
-                    title: 'Настройка iPhone 15 Pro',
-                    type: 'pdf',
-                    description: 'Подробная инструкция по настройке нового iPhone',
-                    models: [{id: 1, name: 'iPhone 15 Pro'}]
-                },
-                {
-                    id: 2,
-                    title: 'Перенос данных на iPhone',
-                    type: 'video',
-                    description: 'Видео-инструкция по переносу данных с предыдущего устройства',
-                    models: [{id: 1, name: 'iPhone 15 Pro'}]
-                },
-                {
-                    id: 3,
-                    title: 'Настройка Samsung Galaxy S24',
-                    type: 'pdf',
-                    description: 'Инструкция по настройке Samsung Galaxy',
-                    models: [{id: 2, name: 'Samsung Galaxy S24'}]
-                },
-                {
-                    id: 4,
-                    title: 'Настройка MacBook Pro M3',
-                    type: 'pdf',
-                    description: 'Первоначальная настройка MacBook',
-                    models: [{id: 3, name: 'MacBook Pro M3'}]
-                }
-            ],
-            recipes: [
-                {
-                    id: 1,
-                    title: 'Рецепт восстановления iPhone',
-                    type: 'video',
-                    description: 'Пошаговое восстановление iPhone через iTunes',
-                    models: [{id: 1, name: 'iPhone 15 Pro'}]
-                },
-                {
-                    id: 2,
-                    title: 'Рецепт оптимизации MacBook',
-                    type: 'pdf',
-                    description: 'Способы оптимизации производительности MacBook',
-                    models: [{id: 3, name: 'MacBook Pro M3'}]
-                }
-            ],
-            tickets: [
-                {
-                    id: 1,
-                    user_id: 123456,
-                    username: 'test_user',
-                    status: 'open',
-                    subject: 'Проблема с настройкой iPhone',
-                    created_at: '2024-01-01T00:00:00Z',
-                    messages: [
-                        {
-                            id: 1,
-                            from_role: 'user',
-                            text: 'Не могу настроить Face ID на новом iPhone',
-                            created_at: '2024-01-01T00:00:00Z'
-                        }
-                    ]
-                }
-            ]
-        };
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
 
         // Load models
-        function loadModels() {
-            displayModels(mockData.models);
+        async function loadModels() {
+            try {
+                const models = await apiCall('/models');
+                displayModels(models);
+            } catch (error) {
+                document.getElementById('models-list').innerHTML = 
+                    '<div class="loading">Ошибка загрузки моделей</div>';
+            }
         }
 
         // Display models
@@ -645,19 +571,12 @@
         }
 
         // Show model detail
-        function showModelDetail(modelId) {
-            const model = mockData.models.find(m => m.id == modelId);
-            if (model) {
-                // Add mock instructions and recipes
-                model.instructions = mockData.instructions.filter(inst => 
-                    inst.models.some(m => m.id == modelId)
-                );
-                model.recipes = mockData.recipes.filter(recipe => 
-                    recipe.models.some(m => m.id == modelId)
-                );
+        async function showModelDetail(modelId) {
+            try {
+                const model = await apiCall(`/models/${modelId}`);
                 showModelModal(model);
-            } else {
-                alert('Модель не найдена');
+            } catch (error) {
+                alert('Ошибка загрузки деталей модели');
             }
         }
 
@@ -703,8 +622,14 @@
         }
 
         // Load instructions
-        function loadInstructions() {
-            displayInstructions(mockData.instructions);
+        async function loadInstructions() {
+            try {
+                const instructions = await apiCall('/instructions');
+                displayInstructions(instructions);
+            } catch (error) {
+                document.getElementById('instructions-list').innerHTML = 
+                    '<div class="loading">Ошибка загрузки инструкций</div>';
+            }
         }
 
         // Display instructions
@@ -720,14 +645,20 @@
                 <div class="model-card">
                     <div class="model-name">${instruction.title}</div>
                     <div class="model-description">${instruction.description}</div>
-                    <div class="model-tags">${instruction.type} | ${instruction.models.map(m => m.name).join(', ')}</div>
+                    <div class="model-tags">${instruction.type} | Модель ID: ${instruction.model_id}</div>
                 </div>
             `).join('');
         }
 
         // Load recipes
-        function loadRecipes() {
-            displayRecipes(mockData.recipes);
+        async function loadRecipes() {
+            try {
+                const recipes = await apiCall('/recipes');
+                displayRecipes(recipes);
+            } catch (error) {
+                document.getElementById('recipes-list').innerHTML = 
+                    '<div class="loading">Ошибка загрузки рецептов</div>';
+            }
         }
 
         // Display recipes
@@ -743,7 +674,7 @@
                 <div class="model-card">
                     <div class="model-name">${recipe.title}</div>
                     <div class="model-description">${recipe.description}</div>
-                    <div class="model-tags">${recipe.type} | ${recipe.models.map(m => m.name).join(', ')}</div>
+                    <div class="model-tags">${recipe.type} | Модель ID: ${recipe.model_id}</div>
                 </div>
             `).join('');
         }
@@ -759,48 +690,52 @@
             }
         }
 
-        function performSearch() {
-            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
             
             if (!query) {
                 return;
             }
             
-            // Simple search in mock data
-            const activeSection = document.querySelector('.content-section.active');
-            const listContainer = activeSection.querySelector('.models-list');
-            
-            if (activeSection.id === 'models-section') {
-                const filteredModels = mockData.models.filter(model => 
-                    model.name.toLowerCase().includes(query) ||
-                    model.description.toLowerCase().includes(query) ||
-                    model.tags.toLowerCase().includes(query)
-                );
-                displayModels(filteredModels);
-            } else if (activeSection.id === 'instructions-section') {
-                const filteredInstructions = mockData.instructions.filter(instruction => 
-                    instruction.title.toLowerCase().includes(query) ||
-                    instruction.description.toLowerCase().includes(query)
-                );
-                displayInstructions(filteredInstructions);
-            } else if (activeSection.id === 'recipes-section') {
-                const filteredRecipes = mockData.recipes.filter(recipe => 
-                    recipe.title.toLowerCase().includes(query) ||
-                    recipe.description.toLowerCase().includes(query)
-                );
-                displayRecipes(filteredRecipes);
+            try {
+                const results = await apiCall('/search', {
+                    method: 'POST',
+                    body: JSON.stringify({ query })
+                });
+                
+                // Show search results in current section
+                const activeSection = document.querySelector('.content-section.active');
+                
+                if (results.models && results.models.length > 0) {
+                    displayModels(results.models);
+                } else if (results.instructions && results.instructions.length > 0) {
+                    displayInstructions(results.instructions);
+                } else if (results.recipes && results.recipes.length > 0) {
+                    displayRecipes(results.recipes);
+                } else {
+                    const listContainer = activeSection.querySelector('.models-list');
+                    listContainer.innerHTML = '<div class="loading">Ничего не найдено</div>';
+                }
+            } catch (error) {
+                console.error('Search failed:', error);
             }
         }
 
         // Support functionality
-        function loadTickets() {
+        async function loadTickets() {
             if (!currentUser) {
                 document.getElementById('tickets-list').innerHTML = 
                     '<div class="loading">Войдите в Telegram для просмотра обращений</div>';
                 return;
             }
             
-            displayTickets(mockData.tickets);
+            try {
+                const tickets = await apiCall(`/tickets?user_id=${currentUser.id}`);
+                displayTickets(tickets);
+            } catch (error) {
+                document.getElementById('tickets-list').innerHTML = 
+                    '<div class="loading">Ошибка загрузки обращений</div>';
+            }
         }
 
         // Display tickets
@@ -823,7 +758,7 @@
         }
 
         // Create support ticket
-        function createSupportTicket() {
+        async function createSupportTicket() {
             if (!currentUser) {
                 alert('Войдите в Telegram для создания обращения');
                 return;
@@ -837,31 +772,24 @@
                 return;
             }
             
-            // Add new ticket to mock data
-            const newTicket = {
-                id: mockData.tickets.length + 1,
-                user_id: currentUser.id,
-                username: currentUser.username || currentUser.first_name,
-                status: 'open',
-                subject: subject,
-                created_at: new Date().toISOString(),
-                closed_at: null,
-                messages: [
-                    {
-                        id: 1,
-                        from_role: 'user',
-                        text: message,
-                        created_at: new Date().toISOString()
-                    }
-                ]
-            };
-            
-            mockData.tickets.push(newTicket);
-            
-            alert('Обращение создано успешно!');
-            document.getElementById('supportSubject').value = '';
-            document.getElementById('supportMessage').value = '';
-            loadTickets();
+            try {
+                const result = await apiCall('/tickets', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        user_id: currentUser.id,
+                        username: currentUser.username || currentUser.first_name,
+                        subject: subject,
+                        message: message
+                    })
+                });
+                
+                alert('Обращение создано успешно!');
+                document.getElementById('supportSubject').value = '';
+                document.getElementById('supportMessage').value = '';
+                loadTickets();
+            } catch (error) {
+                alert('Ошибка создания обращения');
+            }
         }
 
         // Close modal when clicking outside
