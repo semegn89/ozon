@@ -13,6 +13,45 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
 });
 
+// API Test Functions
+async function testAPI() {
+    const resultDiv = document.getElementById('api-result');
+    resultDiv.innerHTML = 'Тестирование API...';
+    resultDiv.className = 'api-result';
+    
+    try {
+        const response = await fetch('/api/test');
+        const data = await response.json();
+        
+        resultDiv.innerHTML = JSON.stringify(data, null, 2);
+        resultDiv.className = 'api-result success';
+    } catch (error) {
+        resultDiv.innerHTML = `Ошибка: ${error.message}`;
+        resultDiv.className = 'api-result error';
+    }
+}
+
+async function loadModels() {
+    const resultDiv = document.getElementById('api-result');
+    resultDiv.innerHTML = 'Загрузка моделей...';
+    resultDiv.className = 'api-result';
+    
+    try {
+        const response = await fetch('/api/models');
+        const data = await response.json();
+        
+        resultDiv.innerHTML = JSON.stringify(data, null, 2);
+        resultDiv.className = 'api-result success';
+        
+        // Also update the models list
+        models = data;
+        displayModels();
+    } catch (error) {
+        resultDiv.innerHTML = `Ошибка: ${error.message}`;
+        resultDiv.className = 'api-result error';
+    }
+}
+
 function initializeApp() {
     // Configure Telegram WebApp
     tg.ready();
