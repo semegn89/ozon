@@ -1,0 +1,2 @@
+# Minimal requirements for Vercel Python functions
+# No database dependencies to avoid build issues
