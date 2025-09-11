@@ -10,7 +10,7 @@ from telegram.ext import (
 from telegram.error import TelegramError, Conflict
 import asyncio
 from datetime import datetime, timedelta
-from aiohttp import web
+# from aiohttp import web  # Not needed anymore - using built-in http.server
 import threading
 import time
 # Import our modules
@@ -3088,35 +3088,43 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 # ==================== HEALTHCHECK SERVER ====================
-async def healthcheck_handler(request):
-    """Simple healthcheck endpoint"""
-    return web.Response(text="OK", status=200)
+# async def healthcheck_handler(request):  # Not needed anymore - using built-in http.server
+#     """Simple healthcheck endpoint"""
+#     return web.Response(text="OK", status=200)
 def start_healthcheck_server():
     """Start simple HTTP server for healthcheck"""
     try:
-        app = web.Application()
-        app.router.add_get('/health', healthcheck_handler)
-        app.router.add_get('/', healthcheck_handler)
-        runner = web.AppRunner(app)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        # Setup and start server
-        loop.run_until_complete(runner.setup())
-        site = web.TCPSite(runner, '0.0.0.0', 8080)
-        loop.run_until_complete(site.start())
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+        import socketserver
+        
+        class HealthCheckHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path in ['/health', '/']:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/plain')
+                    self.end_headers()
+                    self.wfile.write(b'OK')
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+            
+            def log_message(self, format, *args):
+                # Suppress default logging
+                pass
+        
+        server = HTTPServer(('0.0.0.0', 8080), HealthCheckHandler)
         logger.info("Healthcheck server started on port 8080")
+        
         # Keep server running until shutdown
         try:
             while not shutdown_event.is_set():
-                loop.run_until_complete(asyncio.sleep(1))
+                server.handle_request()
         except KeyboardInterrupt:
             logger.info("Healthcheck server stopping...")
         finally:
-            loop.run_until_complete(runner.cleanup())
-            loop.stop()
+            server.server_close()
             logger.info("Healthcheck server stopped")
     except Exception as e:
-
         logger.error(f"Healthcheck server error: {e}")
 
 # ==================== RECIPE HANDLERS (STUBS) ====================
